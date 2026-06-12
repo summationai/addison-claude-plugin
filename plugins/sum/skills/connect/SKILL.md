@@ -12,24 +12,16 @@ Create a data connection via `POST /v1/connections` (`{name, type, config, secre
 
 **Never ask for a password/secret in chat.** Offer the paths in this order:
 
-- **Split handoff (default — works on every surface, user never gives the secret to this conversation OR their terminal):** create the connection via API with the full non-secret config (`create_connection` accepts a secretless body — verified), then send the user to that connection's page in the workspace to fill in **only the password field** and hit test. They type one field instead of re-entering the whole form.
-- **File handoff (Claude Code/Cowork power users who want to finish entirely in-flow):** the secret goes into a local file the user creates in their own terminal; it never appears in the conversation, argv, or transcripts.
-- **Pasted-secret salvage (the user already pasted it):** do NOT refuse and bounce them — the exposure already happened, and retyping punishes intent. Proceed: create the connection with the pasted secret (TLS to sum-api, stored as a secret ref), then firmly advise rotating that credential at the source since it transited chat history. Teach the split handoff for next time.
-- **User prefers the webapp end-to-end:** always a fine answer; never pressure.
+- **File handoff (default in-flow path — Claude Code, Cowork, any surface with a user filesystem):** the secret goes into a local file the user creates in their own terminal; it never appears in the conversation, argv, or transcripts. The connection is created in ONE call with config + secrets together.
+- **Webapp end-to-end (default on Desktop chat, where there is no user filesystem):** workspace → Connections → Add connection. Offer to dictate the exact non-secret values to enter so the user only has to type and not think.
+- **Pasted-secret salvage (the user already pasted it):** do NOT refuse and bounce them — the exposure already happened, and retyping punishes intent. Proceed: create the connection with the pasted secret (TLS to sum-api, stored as a secret ref), then firmly advise rotating that credential at the source since it transited chat history. Teach the file handoff for next time.
+
+**Never create a connection without its secrets.** The API accepts a secretless `create_connection`, but the product cannot complete it — a connection cannot be saved/finished in the webapp without its password, so a secretless create strands an orphan the user cannot fix. Create only when the secret is in hand (file or salvage); if an orphan ever gets created, delete it (`DELETE /v1/connections/<id>?confirm=true`).
 
 ## Flow
 
-1. Collect **non-secret** settings in chat: type, a connection name, and the type-specific config (host/account, port, database/warehouse, user, …) per the described schema.
-2a. **Split handoff (default):** echo the non-secret config back for a yes, then:
-
-```bash
-python3 ../api/scripts/sum_api.py call POST /v1/connections \
-  --body '{"name":"<NAME>","type":"<TYPE>","config":{<NON_SECRET_CONFIG>}}'
-```
-
-Give the user the connection name/id and say: open it under workspace → **Connections**, enter the password there, and run its test. Then say "done" here — you verify with `call POST /v1/connections/<ID>/tests` and continue. (A secretless connection will fail its test until the password is set — expected, say so.)
-
-2b. **File handoff (in-flow alternative):**
+1. Collect **non-secret** settings in chat: type, a connection name, and the type-specific config (host/account, port, database/warehouse, user, …) per the described schema. Echo them back for a yes before anything is created.
+2. Secret via file handoff, then create in one call:
 
 ```bash
 # user runs (or you instruct them precisely):
