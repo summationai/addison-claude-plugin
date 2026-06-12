@@ -24,9 +24,9 @@ Run `doctor`. Three cases:
 - No config → run the sibling `login` flow conversationally (never echo the secret; it stores to `~/.summation/skill-config`, 0600).
 - Config present but failing → diagnose per the `doctor` skill, fix or re-login.
 
-### Step 2 — Discover (GATE: connections required)
+### Step 2 — Discover (GATE: connections AND attached datasets required)
 
-Run `preflight`. Check `sections.connections.total` **first**:
+Run `preflight`. Two checks, in order — **both must pass before steps 3–4**:
 
 **Zero connections → the onboarding PAUSES here. Do not proceed to steps 3 or 4. Do not suggest reports.**
 - Mark step 2 "action needed" (amber `blocked` state in the visual); steps 3–4 stay pending.
@@ -34,7 +34,13 @@ Run `preflight`. Check `sections.connections.total` **first**:
 - Offer both paths: **(a) connect it right here** — hand off to the sibling `connect` skill (collects non-secret settings in chat, takes the secret via a local file so it never enters the conversation, creates + tests the connection); **(b) the workspace → Connections page** if they prefer the webapp. Never ask for a password in chat; if one gets pasted anyway, follow the `connect` skill's salvage rule (proceed + advise rotation), don't bounce them.
 - After a connection is created (either path): re-run `preflight` and continue from here.
 
-**One or more connections** → update the visual with the **source map** panel: connected systems (one-line summaries from connections), tables/views/projects counts, notable table names — all mirrored from preflight output verbatim.
+**Gate 2b — `sections.connections.datasets_total` must be > 0.** A connection is a credentialed pipe; only **attached datasets** are analyzable. Browsable source databases/tables (`browse_connection_resources`) are what *could* be attached — they are NOT data and never clear this gate. If `datasets_total` is 0:
+- Keep step 2 in the amber `blocked` state. Do not proceed. Do not introduce Addison to an empty room.
+- Optionally browse the connection (`call POST /v1/connections/<ID>/resources --body '{"max_results": 200}'`) and show the tree as a **preview of what they can attach** — labeled exactly that way.
+- Hand off: open the connection in workspace → **Connections**, attach the datasets (tables) they want analyzed. (No public API for dataset attachment yet — this step is webapp-only.)
+- Resume on "done": re-run `preflight`; `datasets_total > 0` clears the gate.
+
+**Both gates pass** → update the visual with the **source map** panel: connected systems (one-line summaries from connections, including dataset counts), tables/views/projects counts, notable table names — all mirrored from preflight output verbatim.
 
 ### Step 3 — Meet Addison
 
@@ -54,7 +60,7 @@ Update the visual: numbered report-idea cards (title + one-line what-you'll-lear
 
 ## Rules
 
-- **Connections are the source of truth for "data is connected" — never table counts.** Every tenant carries internal/grid system tables, so a non-zero table count proves nothing. Never assume, invent, or embellish tables; the source map mirrors `preflight` output exactly.
+- **`datasets_total` is the source of truth for "data is analyzable" — never table counts, never browsable sources.** Every tenant carries internal/grid system tables (table counts prove nothing), and a connection's reachable databases are merely attachable (browse output proves nothing). Never assume, invent, or embellish data; the source map mirrors `preflight` output exactly.
 - Visual first, then work; one visual updated through the flow, not four separate ones.
 - Never **ask** for database passwords or connection secrets in chat. The `connect` skill owns secret transit (local-file handoff preferred; pasted-secret salvage with rotation advice as fallback; webapp always offered).
 - Each step's failure has a graceful path; never show a stack trace — surface the `request_id` and continue where possible.

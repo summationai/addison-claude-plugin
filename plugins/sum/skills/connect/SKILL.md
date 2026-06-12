@@ -40,7 +40,8 @@ rm -f ~/.summation/pending-secret ~/.summation/pending-connection.json
 
 3. **Always clean up the temp files immediately** (the `rm -f`), success or failure.
 4. **Test it**: `call POST /v1/connections/<NEW_ID>/tests` — report pass/fail with `request_id`. Optionally `call POST /v1/connections/<NEW_ID>/resources` to show what's now browsable.
-5. Hand back: if this ran inside `/sum:start`, return to its Step 2 gate (re-run `preflight` — the gate should now pass).
+5. **A live connection is not the finish line — datasets are.** After the test passes, check the connection's `datasetCount` (visible in `call GET /v1/connections`). If 0: browse what's attachable (`call POST /v1/connections/<ID>/resources --body '{"max_results": 200}'`), show the tree as a preview, and send the user to the connection's page in workspace → **Connections** to attach the datasets they want analyzed (no public API for attachment yet). Only after `preflight` shows `connections.datasets_total > 0` is the data usable.
+6. Hand back: if this ran inside `/sum:start`, return to its Step 2 gate (re-run `preflight` — both gates should now pass).
 
 ## Rules
 

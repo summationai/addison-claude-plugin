@@ -887,6 +887,14 @@ def command_preflight(_: argparse.Namespace) -> None:
                 "total": _payload_total(payload, items),
                 "names": [describe(item) for item in items[:limit_names]],
             }
+            if name == "connections":
+                # Attached datasets are the analyzable unit; a connection with
+                # zero datasets exposes nothing to Addison or queries.
+                result["sections"][name]["datasets_total"] = sum(
+                    item.get("datasetCount", 0)
+                    for item in items
+                    if isinstance(item, dict) and isinstance(item.get("datasetCount"), int)
+                )
         elif name in ("identity", "org"):
             result["sections"][name] = payload
         else:
