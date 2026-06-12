@@ -1,7 +1,7 @@
 {
   "name": "sum",
   "displayName": "Summation",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Summation over the public sum-api: live OpenAPI discovery, catalog search, bounded SQL, report generation + validation, exports (PDF/DOCX/Markdown), audit-logged calls.",
   "author": {
     "name": "Summation"
