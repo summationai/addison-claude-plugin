@@ -7,6 +7,7 @@ import os
 import pathlib
 import ssl
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -231,6 +232,52 @@ def format_url_error(exc: urllib.error.URLError) -> str:
     return f"Request failed: {exc}"
 
 
+def audit_path() -> pathlib.Path:
+    return pathlib.Path.home() / ".summation" / "audit.jsonl"
+
+
+def _request_id_from(headers: Any, detail: Any) -> str | None:
+    if headers is not None:
+        for key in ("x-request-id", "request-id", "x-amzn-requestid"):
+            value = headers.get(key)
+            if value:
+                return value
+    if isinstance(detail, dict):
+        for key in ("request_id", "requestId"):
+            value = detail.get(key)
+            if value:
+                return str(value)
+        error = detail.get("error")
+        if isinstance(error, dict):
+            value = error.get("request_id")
+            if value:
+                return str(value)
+    return None
+
+
+def _audit(method: str, url: str, started: float, status: int | None, request_id: str | None, error: str | None = None) -> None:
+    # Best-effort, never raises, never records bodies, headers, or query strings.
+    try:
+        record = {
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "method": method.upper(),
+            "path": urllib.parse.urlsplit(url).path,
+            "status": status,
+            "duration_ms": int((time.time() - started) * 1000),
+            "request_id": request_id,
+            "profile": selected_profile_name(),
+        }
+        if error:
+            record["error"] = error
+        path = audit_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record) + "\n")
+        os.chmod(path, 0o600)
+    except Exception:
+        pass
+
+
 def request_json(
     method: str,
     path_or_url: str,
@@ -268,9 +315,11 @@ def request_json(
             request_headers["Content-Type"] = "application/json"
 
     req = urllib.request.Request(url, data=data, headers=request_headers, method=method.upper())
+    started = time.time()
     try:
         with urllib.request.urlopen(req, timeout=60, context=ssl_context()) as response:
             raw = response.read()
+            _audit(method, url, started, response.status, _request_id_from(response.headers, None))
             if not raw:
                 return None
             content_type = response.headers.get("Content-Type", "")
@@ -283,6 +332,7 @@ def request_json(
             detail = json.loads(raw)
         except json.JSONDecodeError:
             detail = raw
+        _audit(method, url, started, exc.code, _request_id_from(exc.headers, detail), error=str(exc.reason))
         raise SystemExit(json_dumps({
             "error": {
                 "status": exc.code,
@@ -291,6 +341,7 @@ def request_json(
             }
         })) from exc
     except urllib.error.URLError as exc:
+        _audit(method, url, started, None, None, error=str(exc.reason))
         raise SystemExit(format_url_error(exc)) from exc
 
 
@@ -381,17 +432,20 @@ def request_stream(
         request_headers["Content-Type"] = "application/json"
 
     req = urllib.request.Request(url, data=data, headers=request_headers, method=method.upper())
+    started = time.time()
     try:
         with urllib.request.urlopen(req, timeout=600, context=ssl_context()) as response:
             for raw_line in response:
                 sys.stdout.write(raw_line.decode("utf-8", errors="replace"))
                 sys.stdout.flush()
+            _audit(method, url, started, response.status, _request_id_from(response.headers, None))
     except urllib.error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="replace")
         try:
             detail = json.loads(raw)
         except json.JSONDecodeError:
             detail = raw
+        _audit(method, url, started, exc.code, _request_id_from(exc.headers, detail), error=str(exc.reason))
         raise SystemExit(json_dumps({
             "error": {
                 "status": exc.code,
@@ -400,6 +454,7 @@ def request_stream(
             }
         })) from exc
     except urllib.error.URLError as exc:
+        _audit(method, url, started, None, None, error=str(exc.reason))
         raise SystemExit(format_url_error(exc)) from exc
 
 
@@ -492,9 +547,46 @@ def command_operation(args: argparse.Namespace) -> None:
     print(json_dumps(response))
 
 
+def request_download(method: str, path_or_url: str, output: pathlib.Path, *, headers: dict[str, str] | None = None, query: dict[str, Any] | None = None) -> int:
+    if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
+        url = path_or_url
+    else:
+        path = path_or_url if path_or_url.startswith("/") else f"/{path_or_url}"
+        url = f"{base_url()}{path}"
+    if query:
+        clean_query = {key: str(value) for key, value in query.items() if value is not None}
+        if clean_query:
+            separator = "&" if "?" in url else "?"
+            url = f"{url}{separator}{urllib.parse.urlencode(clean_query)}"
+    request_headers = dict(headers or {})
+    req = urllib.request.Request(url, headers=request_headers, method=method.upper())
+    started = time.time()
+    try:
+        with urllib.request.urlopen(req, timeout=120, context=ssl_context()) as response:
+            raw = response.read()
+            _audit(method, url, started, response.status, _request_id_from(response.headers, None))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        _audit(method, url, started, exc.code, _request_id_from(exc.headers, None), error=str(exc.reason))
+        raise SystemExit(json_dumps({"error": {"status": exc.code, "reason": exc.reason, "body": detail}})) from exc
+    except urllib.error.URLError as exc:
+        _audit(method, url, started, None, None, error=str(exc.reason))
+        raise SystemExit(format_url_error(exc)) from exc
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_bytes(raw)
+    return len(raw)
+
+
 def command_call(args: argparse.Namespace) -> None:
     query = parse_json_arg(args.query, {})
     body = parse_json_arg(args.body, None)
+    if args.output:
+        if body is not None:
+            raise SystemExit("--output supports body-less requests (byte downloads) only")
+        output = pathlib.Path(args.output).expanduser()
+        size = request_download(args.method, args.path, output, headers=auth_headers(), query=query)
+        print(json_dumps({"saved": str(output), "bytes": size}))
+        return
     if args.stream:
         request_stream(
             args.method,
@@ -720,6 +812,98 @@ def add_profile_argument(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--profile", help="Named profile from .summation-config")
 
 
+def _extract_items(payload: Any) -> list[Any]:
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        for key in ("entries", "items", "projects", "tables", "views", "connections", "connectors", "data", "results"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return value
+            if key == "data" and isinstance(value, dict):
+                nested = _extract_items(value)
+                if nested:
+                    return nested
+    return []
+
+
+def _payload_total(payload: Any, items: list[Any]) -> int:
+    if isinstance(payload, dict):
+        total = payload.get("total")
+        if isinstance(total, int):
+            return total
+    return len(items)
+
+
+def _name_of(item: Any) -> str:
+    if isinstance(item, dict):
+        for key in ("name", "title", "display_name", "displayName", "connectionName", "id", "connectionId"):
+            value = item.get(key)
+            if value:
+                return str(value)
+        # Never stringify an unknown record: dicts here can carry hosts,
+        # users, and secret reference names (e.g. connection configs).
+        return "(unnamed)"
+    return str(item)
+
+
+def command_preflight(_: argparse.Namespace) -> None:
+    headers = auth_headers()
+    result: dict[str, Any] = {
+        "base_url": base_url(),
+        "profile": selected_profile_name(),
+        "sections": {},
+        "errors": {},
+    }
+
+    def describe(item: Any) -> str:
+        # Connections carry infra config (hosts, users, secret ref names) that must
+        # not be passed through wholesale; reduce every item to a one-line summary.
+        if isinstance(item, dict) and "connectorType" in item:
+            parts = [str(item.get("connectorType"))]
+            if item.get("status"):
+                parts.append(str(item["status"]))
+            if isinstance(item.get("datasetCount"), int):
+                parts.append(f"{item['datasetCount']} datasets")
+            return f"{_name_of(item)} ({', '.join(parts)})"
+        return _name_of(item)
+
+    def section(name: str, method: str, path: str, *, limit_names: int = 15) -> None:
+        try:
+            payload = request_json(method, path, headers=headers)
+        except SystemExit as exc:
+            result["errors"][name] = str(exc)
+            return
+        items = _extract_items(payload)
+        if items:
+            result["sections"][name] = {
+                "total": _payload_total(payload, items),
+                "names": [describe(item) for item in items[:limit_names]],
+            }
+        elif name in ("identity", "org"):
+            result["sections"][name] = payload
+        else:
+            result["sections"][name] = {"total": _payload_total(payload, items), "names": []}
+
+    section("identity", "GET", "/v1/me")
+    section("org", "GET", "/v1/tenant/org")
+    section("projects", "GET", "/v1/projects")
+    section("tables", "GET", "/v1/tables")
+    section("views", "GET", "/v1/views")
+    section("connections", "GET", "/v1/connections")
+    print(json_dumps(result))
+
+
+def command_audit(args: argparse.Namespace) -> None:
+    path = audit_path()
+    if not path.exists():
+        print(json_dumps({"audit_file": str(path), "lines": []}))
+        return
+    lines = path.read_text(encoding="utf-8").splitlines()
+    for line in lines[-args.tail:]:
+        print(line)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Summation sum-api helper")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -756,6 +940,10 @@ def main() -> int:
         action="store_true",
         help="Stream response body line-by-line (for SSE or NDJSON endpoints; pair with Monitor in Claude Code)",
     )
+    call_parser.add_argument(
+        "--output",
+        help="Write the raw response bytes to this file (for PDF/DOCX exports); body-less GET requests only",
+    )
     call_parser.set_defaults(func=command_call)
 
     describe_parser = subparsers.add_parser(
@@ -791,6 +979,16 @@ def main() -> int:
     configure_parser.add_argument("--scope", help="M2M token scope")
     configure_parser.add_argument("--path", help="Config file path")
     configure_parser.set_defaults(func=command_configure)
+
+    preflight_parser = subparsers.add_parser(
+        "preflight", help="Authenticated environment summary: identity, org, projects, tables, views, connections"
+    )
+    add_profile_argument(preflight_parser)
+    preflight_parser.set_defaults(func=command_preflight)
+
+    audit_parser = subparsers.add_parser("audit", help="Print recent API audit log lines (~/.summation/audit.jsonl)")
+    audit_parser.add_argument("--tail", type=int, default=20, help="Number of trailing lines to print")
+    audit_parser.set_defaults(func=command_audit)
 
     doctor_parser = subparsers.add_parser("doctor", help="Check OpenAPI reachability and local auth inputs")
     add_profile_argument(doctor_parser)

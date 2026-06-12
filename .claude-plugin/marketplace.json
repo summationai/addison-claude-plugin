@@ -7,8 +7,8 @@
     {
       "name": "sum",
       "source": "./plugins/sum",
-      "description": "Work with Summation through the public sum-api: discover the live OpenAPI contract, authenticate, query data, and generate and export reports.",
-      "version": "0.1.0",
+      "description": "Work with Summation through the public sum-api: catalog discovery, bounded SQL, report generation with validation, and PDF/DOCX/Markdown export.",
+      "version": "0.2.0",
       "author": {
         "name": "Summation"
       },

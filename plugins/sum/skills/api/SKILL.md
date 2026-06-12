@@ -50,8 +50,19 @@ python3 $SKILL/scripts/sum_api.py operation list_agent_projects_v1_projects_get
 - `profiles` — list named profiles in `.summation-config` with secrets redacted.
 - `use-profile <name>` — set the active profile in `.summation-config`.
 - `doctor` — sanity check (base URL, config file, OpenAPI reachability, auth inputs).
+- `preflight` — authenticated environment summary: identity, org, projects, tables, views, connections (counts + names, secrets-safe).
+- `audit [--tail N]` — print recent API audit lines; every call appends `{ts, method, path, status, duration_ms, request_id, profile}` to `~/.summation/audit.jsonl`.
+- `call … --output <file>` — byte-safe download for binary exports (PDF/DOCX); never print binary bodies to stdout.
 
 Every API-facing subcommand accepts `--profile <name>` to use a named profile for that call.
+
+### First-run source map
+
+The first time a user connects (right after `login` succeeds) or when they ask a broad question like "what do you know about my data": run `preflight`, then render a **source map** — a compact tree of connected systems (from `connections`), what was found (table/view/project counts, notable names), and 3–4 suggested first analyses phrased against the real table names. End by suggesting `/sum:query` or `/sum:report`. Do this once per session, not on every question.
+
+### Tracing
+
+Every API call is audit-logged locally with its `request_id`. When anything fails, quote the `request_id` to the user (it joins client failures to server traces) and check `audit --tail 5`.
 
 ### Streaming (SSE)
 

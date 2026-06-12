@@ -14,10 +14,18 @@ python3 ../api/scripts/sum_api.py profiles
 
 `doctor` reports: base URL, active profile, config file path and mode, OpenAPI reachability (title/version/path count), and whether M2M credentials or an access token are present.
 
-Then prove auth end-to-end with one cheap call:
+For the full **preflight** (authenticated environment summary — identity, org, projects, tables, views, connections, all counted and named):
 
 ```bash
-python3 ../api/scripts/sum_api.py call GET /v1/projects
+python3 ../api/scripts/sum_api.py preflight
+```
+
+Render preflight as a short environment card: who you are (tenant, scopes), what's connected, what's reachable, plus 2–3 sample questions that would work against the real table names found.
+
+To trace recent API activity (every call logs one line with `request_id` to `~/.summation/audit.jsonl`):
+
+```bash
+python3 ../api/scripts/sum_api.py audit --tail 20
 ```
 
 ## Interpreting results
