@@ -31,8 +31,8 @@ Run `preflight`. Check `sections.connections.total` **first**:
 **Zero connections → the onboarding PAUSES here. Do not proceed to steps 3 or 4. Do not suggest reports.**
 - Mark step 2 "action needed" (amber `blocked` state in the visual); steps 3–4 stay pending.
 - Tell the user plainly: no data sources are connected yet, so there is nothing real to analyze. Any tables preflight shows in this state are Summation **system tables, not business data** — never present them as a data map.
-- Point them to their Summation workspace → **Connections** page to add a source (Postgres, Snowflake, etc.). Database credentials are **never** collected in this chat.
-- End by asking them to say "done" once a source is connected — then re-run `preflight` and continue from here.
+- Offer both paths: **(a) connect it right here** — hand off to the sibling `connect` skill (collects non-secret settings in chat, takes the secret via a local file so it never enters the conversation, creates + tests the connection); **(b) the workspace → Connections page** if they prefer the webapp. Never ask for a password in chat; if one gets pasted anyway, follow the `connect` skill's salvage rule (proceed + advise rotation), don't bounce them.
+- After a connection is created (either path): re-run `preflight` and continue from here.
 
 **One or more connections** → update the visual with the **source map** panel: connected systems (one-line summaries from connections), tables/views/projects counts, notable table names — all mirrored from preflight output verbatim.
 
@@ -56,6 +56,6 @@ Update the visual: numbered report-idea cards (title + one-line what-you'll-lear
 
 - **Connections are the source of truth for "data is connected" — never table counts.** Every tenant carries internal/grid system tables, so a non-zero table count proves nothing. Never assume, invent, or embellish tables; the source map mirrors `preflight` output exactly.
 - Visual first, then work; one visual updated through the flow, not four separate ones.
-- Never collect database passwords or connection secrets in chat — data sources are configured in the Summation webapp.
+- Never **ask** for database passwords or connection secrets in chat. The `connect` skill owns secret transit (local-file handoff preferred; pasted-secret salvage with rotation advice as fallback; webapp always offered).
 - Each step's failure has a graceful path; never show a stack trace — surface the `request_id` and continue where possible.
 - Whole flow should feel under five minutes; if report generation is slow, say so and stream progress rather than going silent.

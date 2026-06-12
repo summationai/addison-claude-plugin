@@ -29,6 +29,7 @@ Plugin marketplace for Summation. One plugin, `sum`, exposes the public sum-api 
 | `validate` | `/sum:validate` | run report verification; verdict panel before anything ships externally |
 | `query` | `/sum:query` | bounded read-only SQL → rendered table, SQL shown for spot-checking |
 | `catalog` | `/sum:catalog` | search/describe tables, views, catalog metadata |
+| `connect` | `/sum:connect` | add a data source in-flow: non-secret config in chat, secret via local file (never in conversation), create + test |
 | `schedule` | `/sum:schedule` | recurring playbook runs with email delivery: list/create/pause/resume/run-now (recipient lists confirmed verbatim) |
 
 Every API call is audit-logged to `~/.summation/audit.jsonl` (`{ts, method, path, status, duration_ms, request_id, profile}`) — `sum_api.py audit --tail 20` to inspect.

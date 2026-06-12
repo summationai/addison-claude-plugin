@@ -579,7 +579,14 @@ def request_download(method: str, path_or_url: str, output: pathlib.Path, *, hea
 
 def command_call(args: argparse.Namespace) -> None:
     query = parse_json_arg(args.query, {})
-    body = parse_json_arg(args.body, None)
+    if args.body and args.body_file:
+        raise SystemExit("Use --body or --body-file, not both")
+    if args.body_file:
+        # Secrets-safe body transport: contents never appear in argv or transcripts.
+        body_path = pathlib.Path(args.body_file).expanduser()
+        body = parse_json_arg(body_path.read_text(encoding="utf-8"), None)
+    else:
+        body = parse_json_arg(args.body, None)
     if args.output:
         if body is not None:
             raise SystemExit("--output supports body-less requests (byte downloads) only")
@@ -935,6 +942,10 @@ def main() -> int:
     call_parser.add_argument("path")
     call_parser.add_argument("--query", help="JSON object of query parameters")
     call_parser.add_argument("--body", help="JSON request body")
+    call_parser.add_argument(
+        "--body-file",
+        help="Read the JSON request body from a file (keeps secrets out of argv and transcripts)",
+    )
     call_parser.add_argument(
         "--stream",
         action="store_true",
