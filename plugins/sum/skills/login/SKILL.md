@@ -9,7 +9,10 @@ Set up sum-api credentials through device login by default. The helper lives in 
 
 ## Flow
 
-1. Ask the user for: base URL (default `https://sandbox-api.summation.com`) and an optional profile name.
+1. Resolve the environment before asking questions:
+   - If an active profile or explicit config already provides a usable `SUM_API_BASE_URL`, reuse it by default.
+   - If the user explicitly asks for a different environment or profile, use that instead.
+   - Ask for base URL and profile only when the environment is not already clear from config or user intent.
 2. Start device login:
 
 ```bash
