@@ -24,6 +24,7 @@ Plugin marketplace for Summation. One plugin, `sum`, exposes the public sum-api 
 | `start` | `/sum:start` | **guided onboarding**: visual stepper → connect → source map → meet Addison → suggested reports → run one on confirm |
 | `api` | model-invoked | OpenAPI-discovery workflow + `scripts/sum_api.py` helper (canonical; sibling skills reference it); first-run source map |
 | `login` | `/sum:login` | conversational credential setup → `~/.summation/skill-config` (0600) |
+| `logout` | `/sum:logout` | remove the stored device-login credential from the active or selected profile |
 | `doctor` | `/sum:doctor` | connectivity/auth diagnosis + `preflight` environment summary |
 | `report` | `/sum:report` | generate a report from a question → export markdown/PDF/DOCX |
 | `validate` | `/sum:validate` | run report verification; verdict panel before anything ships externally |
