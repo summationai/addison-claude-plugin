@@ -13,7 +13,7 @@ Set up sum-api credentials through device login by default. The helper lives in 
 2. Start device login:
 
 ```bash
-python3 ../api/scripts/sum_api.py login [--profile <NAME>] [--surface claude-code|claude-desktop]
+python3 ../api/scripts/sum_api.py login --base-url <BASE_URL> [--profile <NAME>] [--surface claude-code|claude-desktop]
 ```
 
 3. Present the returned `verification_uri_complete` and `user_code` to the user. Tell them to open the link themselves; do not open it for them. Use this shape:
@@ -31,6 +31,7 @@ python3 ../api/scripts/sum_api.py login [--profile <NAME>] [--surface claude-cod
 
 ```bash
 python3 ../api/scripts/sum_api.py login-poll \
+  --base-url <BASE_URL> \
   --device-code <DEVICE_CODE> \
   --interval <INTERVAL> \
   --expires-in <EXPIRES_IN> \

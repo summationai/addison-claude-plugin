@@ -26,6 +26,7 @@ DEVICE_LOGIN_ALLOWED_SURFACES = (
     "claude-desktop",
 )
 PROFILE_OVERRIDE: str | None = None
+BASE_URL_OVERRIDE: str | None = None
 
 
 def skill_root() -> pathlib.Path:
@@ -200,6 +201,8 @@ def setting(name: str, default: str | None = None) -> str | None:
 
 
 def base_url() -> str:
+    if BASE_URL_OVERRIDE:
+        return BASE_URL_OVERRIDE.rstrip("/")
     return setting("SUM_API_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
 
 
@@ -1069,6 +1072,10 @@ def add_profile_argument(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--profile", help="Named profile from .summation-config")
 
 
+def add_base_url_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--base-url", dest="base_url", help="sum-api base URL")
+
+
 def _extract_items(payload: Any) -> list[Any]:
     if isinstance(payload, list):
         return payload
@@ -1240,6 +1247,7 @@ def main() -> int:
         help="Start device login and print the browser approval instructions",
     )
     add_profile_argument(login_parser)
+    add_base_url_argument(login_parser)
     login_parser.add_argument(
         "--surface",
         default="claude-code",
@@ -1253,6 +1261,7 @@ def main() -> int:
         help="Poll the current device login and store the credential on completion",
     )
     add_profile_argument(login_poll_parser)
+    add_base_url_argument(login_poll_parser)
     login_poll_parser.add_argument(
         "--device-code",
         required=True,
@@ -1316,8 +1325,9 @@ def main() -> int:
     use_profile_parser.set_defaults(func=command_use_profile)
 
     args = parser.parse_args()
-    global PROFILE_OVERRIDE
+    global PROFILE_OVERRIDE, BASE_URL_OVERRIDE
     PROFILE_OVERRIDE = getattr(args, "profile", None)
+    BASE_URL_OVERRIDE = getattr(args, "base_url", None)
     args.func(args)
     return 0
 
