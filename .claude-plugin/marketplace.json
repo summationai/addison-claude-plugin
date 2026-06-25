@@ -8,7 +8,7 @@
       "name": "sum",
       "source": "./plugins/sum",
       "description": "Work with Summation through the public sum-api: catalog discovery, bounded SQL, report generation with validation, and PDF/DOCX/Markdown export.",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "author": {
         "name": "Summation"
       },
