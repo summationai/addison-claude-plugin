@@ -46,8 +46,8 @@ python3 $SKILL/scripts/sum_api.py operation list_agent_projects_v1_projects_get
 - `call <METHOD> <path>` — call any path directly. Flags: `--query`, `--body`, `--stream`.
 - `operation <operationId>` — call a discovered operation. Flags: `--params`, `--body`, `--stream`.
 - `token` — print a fresh M2M access token (for piping into `curl`).
-- `login` — start device login and return `device_code`, `verification_uri_complete`, `user_code`, `interval`, and `expires_in`. Accepts `--base-url` for environments that are not already configured.
-- `login-poll` — poll a device login to terminal state using `--device-code`, `--interval`, and `--expires-in`; on `approved` it stores the device-login credential locally. Accepts `--base-url` for environments that are not already configured.
+- `login` — start device login, store temporary local polling state (`0600`), and return chat-safe fields (`verification_uri_complete`, `user_code`, `expires_in`). Accepts `--base-url` for environments that are not already configured.
+- `login-poll` — poll the locally pending device login to terminal state; on `approved` it stores the device-login credential locally and clears the temporary polling state. Accepts `--profile` to select among multiple pending logins.
 - `logout` — revoke the stored device-login session and remove its local credential from the selected profile without touching M2M settings.
 - `configure` — write local M2M configuration (mode `0600`) for fallback/admin use.
 - `profiles` — list named profiles in `.summation-config` with secrets redacted.

@@ -25,18 +25,18 @@ python3 ../api/scripts/sum_api.py login --base-url <BASE_URL> [--profile <NAME>]
    > You'll approve in your browser; no password or secret is shared in this chat.
 
    Show only `verification_uri_complete` and `user_code` to the user. Do not print or quote
-   `device_code`, and do not paste raw helper JSON into chat. Do not ask the user to share
+   `device_code`, and do not paste raw helper JSON containing internal polling state into chat. Do not ask the user to share
    passwords, session tokens, client secrets, or other credentials in chat.
 4. Poll until the login reaches a terminal state:
 
 ```bash
 python3 ../api/scripts/sum_api.py login-poll \
-  --base-url <BASE_URL> \
-  --device-code <DEVICE_CODE> \
-  --interval <INTERVAL> \
-  --expires-in <EXPIRES_IN> \
   [--profile <NAME>]
 ```
+
+   `login` stores temporary local polling state with file mode `0600`, including the
+   originating base URL, so `login-poll`
+   normally does not need `device_code`, `interval`, or `expires_in` on the command line.
 
    On success this stores `SUM_API_DEVICE_LOGIN_CREDENTIAL` in `~/.summation/skill-config` with file mode `0600`.
 
@@ -86,5 +86,5 @@ Tell them to come back with `/sum:login` once they have the three values — and
 - Prefer device login over M2M whenever both are viable.
 - Never print, log, or commit the device-login credential, access token, or client secret.
 - Multiple environments → named profiles (`--profile`), switch with `use-profile <name>`.
-- Carry `device_code`, `interval`, and `expires_in` forward from `login` into `login-poll`; they are part of the device-login contract.
+- The helper stores temporary polling state locally after `login`; do not surface `device_code`, `interval`, or `expires_in` in chat.
 - If `configure` is needed for M2M fallback, pass all values as flags.

@@ -16,6 +16,7 @@ from typing import Any
 
 DEFAULT_BASE_URL = "https://sandbox-api.summation.com"
 CONFIG_FILE_NAME = ".summation-config"
+DEVICE_LOGIN_STATE_FILE_NAME = ".device-login-state.json"
 ACTIVE_PROFILE_KEY = "SUM_API_ACTIVE_PROFILE"
 PROFILE_ENV_KEYS = ("SUM_API_PROFILE", "SUMMATION_PROFILE")
 CONFIG_PATH_ENV_KEYS = ("SUM_API_CONFIG_FILE", "SUMMATION_CONFIG")
@@ -35,6 +36,10 @@ def skill_root() -> pathlib.Path:
 
 def home_config_path() -> pathlib.Path:
     return pathlib.Path.home() / ".summation" / "skill-config"
+
+
+def device_login_state_path() -> pathlib.Path:
+    return pathlib.Path.home() / ".summation" / DEVICE_LOGIN_STATE_FILE_NAME
 
 
 def legacy_config_paths() -> list[pathlib.Path]:
@@ -257,6 +262,97 @@ def auth_mode(
 
 def json_dumps(value: Any) -> str:
     return json.dumps(value, indent=2, sort_keys=True)
+
+
+def _device_login_state_key(profile_name: str | None, base_url_value: str) -> str:
+    if profile_name:
+        return f"profile:{profile_name}"
+    return f"base_url:{base_url_value.rstrip('/')}"
+
+
+def _read_device_login_states() -> dict[str, dict[str, Any]]:
+    path = device_login_state_path()
+    if not path.exists():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"Device-login state file is unreadable: {path} ({exc})") from exc
+    if not isinstance(raw, dict):
+        raise SystemExit(f"Device-login state file is invalid: {path}")
+    states: dict[str, dict[str, Any]] = {}
+    for key, value in raw.items():
+        if isinstance(key, str) and isinstance(value, dict):
+            states[key] = value
+    return states
+
+
+def _write_device_login_states(states: dict[str, dict[str, Any]]) -> pathlib.Path:
+    path = device_login_state_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(states, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    os.chmod(path, 0o600)
+    return path
+
+
+def store_pending_device_login(
+    *,
+    profile_name: str | None,
+    surface: str,
+    device_code: str,
+    interval: int,
+    expires_in: int,
+) -> pathlib.Path:
+    now = time.time()
+    state = {
+        "profile": profile_name,
+        "base_url": base_url(),
+        "surface": surface,
+        "device_code": device_code,
+        "interval": interval,
+        "expires_in": expires_in,
+        "created_at": now,
+        "expires_at": now + expires_in,
+    }
+    states = _read_device_login_states()
+    states[_device_login_state_key(profile_name, base_url())] = state
+    return _write_device_login_states(states)
+
+
+def load_pending_device_login(profile_name: str | None) -> tuple[str, dict[str, Any]]:
+    states = _read_device_login_states()
+    if profile_name:
+        key = _device_login_state_key(profile_name, base_url())
+        state = states.get(key)
+        if state is not None:
+            return key, state
+        profile_key = f"profile:{profile_name}"
+        state = states.get(profile_key)
+        if state is not None:
+            return profile_key, state
+        raise SystemExit(
+            f"No pending device login for profile '{profile_name}'. Run the login command again."
+        )
+    if not states:
+        raise SystemExit("No pending device login found. Run the login command again.")
+    if len(states) == 1:
+        return next(iter(states.items()))
+    raise SystemExit(
+        "Multiple pending device logins exist. Re-run with --profile to select one."
+    )
+
+
+def clear_pending_device_login(profile_name: str | None, base_url_value: str) -> pathlib.Path | None:
+    path = device_login_state_path()
+    if not path.exists():
+        return None
+    states = _read_device_login_states()
+    states.pop(_device_login_state_key(profile_name, base_url_value), None)
+    if states:
+        _write_device_login_states(states)
+    else:
+        path.unlink()
+    return path
 
 
 def parse_json_arg(raw: str | None, default: Any) -> Any:
@@ -832,43 +928,71 @@ def command_login(args: argparse.Namespace) -> None:
     if not isinstance(expires_in, int) or expires_in <= 0:
         raise SystemExit("Device-login start failed: expires_in must be a positive integer")
     interval = _normalize_poll_interval(response.get("interval"))
+    profile_name = args.profile or selected_profile_name()
+    store_pending_device_login(
+        profile_name=profile_name,
+        surface=args.surface,
+        device_code=response["device_code"],
+        interval=interval,
+        expires_in=expires_in,
+    )
     result = {
-        "device_code": response["device_code"],
-        "surface": args.surface,
-        "verification_uri": response["verification_uri"],
+        "profile": profile_name,
         "verification_uri_complete": response["verification_uri_complete"],
         "user_code": response["user_code"],
         "expires_in": expires_in,
-        "interval": interval,
     }
     print(json_dumps(result))
 
 
 def command_login_poll(args: argparse.Namespace) -> None:
-    if args.interval <= 0:
-        raise SystemExit("Device-login poll failed: interval must be a positive integer")
-    if args.expires_in <= 0:
-        raise SystemExit("Device-login poll failed: expires_in must be a positive integer")
+    profile_name = args.profile or selected_profile_name()
+    _, pending_state = load_pending_device_login(profile_name)
+    device_code = pending_state.get("device_code")
+    interval = pending_state.get("interval")
+    pending_state_base_url = pending_state.get("base_url")
+    expires_at = pending_state.get("expires_at")
 
-    deadline = time.monotonic() + args.expires_in
+    if not isinstance(device_code, str) or not device_code:
+        raise SystemExit("Device-login poll failed: pending state is missing device_code")
+    if not isinstance(interval, int) or interval <= 0:
+        raise SystemExit("Device-login poll failed: pending state is missing interval")
+    if not isinstance(pending_state_base_url, str) or not pending_state_base_url:
+        raise SystemExit("Device-login poll failed: pending state is missing base_url")
+    if not isinstance(expires_at, (int, float)):
+        raise SystemExit("Device-login poll failed: pending state is missing expires_at")
+
+    expires_in = int(expires_at - time.time())
+    if expires_in <= 0:
+        clear_pending_device_login(profile_name, pending_state_base_url)
+        print(json_dumps({"status": "expired"}))
+        return
+
+    global BASE_URL_OVERRIDE
+    BASE_URL_OVERRIDE = pending_state_base_url.rstrip("/")
+
+    deadline = time.monotonic() + expires_in
     while True:
-        response = _poll_device_login(args.device_code)
+        response = _poll_device_login(device_code)
         status = response["status"].lower()
 
         if status == "pending":
             remaining = deadline - time.monotonic()
             if remaining <= 0:
+                if pending_state_base_url:
+                    clear_pending_device_login(profile_name, pending_state_base_url)
                 print(json_dumps({"status": "expired"}))
                 return
-            time.sleep(min(args.interval, remaining))
+            time.sleep(min(interval, remaining))
             continue
 
         if status == "approved":
             credential = response.get("credential")
             if not isinstance(credential, str) or not credential:
                 raise SystemExit("Device-login poll failed: approved response missing credential")
-            profile_name = args.profile or selected_profile_name()
             path = store_device_login_credential(credential, profile_name)
+            if pending_state_base_url:
+                clear_pending_device_login(profile_name, pending_state_base_url)
             print(json_dumps({
                 "status": "approved",
                 "config_file": str(path),
@@ -878,6 +1002,8 @@ def command_login_poll(args: argparse.Namespace) -> None:
             return
 
         if status in {"denied", "expired"}:
+            if pending_state_base_url:
+                clear_pending_device_login(profile_name, pending_state_base_url)
             print(json_dumps({"status": status}))
             return
 
@@ -897,6 +1023,7 @@ def command_logout(args: argparse.Namespace) -> None:
     if not revoked:
         raise SystemExit("Device-login logout failed: revoke returned success=false")
     path, removed = clear_device_login_credential(profile_name)
+    clear_pending_device_login(profile_name, base_url())
     print(json_dumps({
         "status": "logged_out" if removed else "already_logged_out",
         "config_file": str(path),
@@ -1291,24 +1418,6 @@ def main() -> int:
         help="Poll the current device login and store the credential on completion",
     )
     add_profile_argument(login_poll_parser)
-    add_base_url_argument(login_poll_parser)
-    login_poll_parser.add_argument(
-        "--device-code",
-        required=True,
-        help="Device code returned by the login command",
-    )
-    login_poll_parser.add_argument(
-        "--interval",
-        required=True,
-        type=int,
-        help="Polling interval returned by the login command",
-    )
-    login_poll_parser.add_argument(
-        "--expires-in",
-        required=True,
-        type=int,
-        help="Expiration window in seconds returned by the login command",
-    )
     login_poll_parser.set_defaults(func=command_login_poll)
 
     logout_parser = subparsers.add_parser(

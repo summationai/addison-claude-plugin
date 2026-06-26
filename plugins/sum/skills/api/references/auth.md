@@ -103,9 +103,9 @@ The helper resolves auth in this order:
 
 Device login is the default interactive auth path for users.
 
-Use the sibling `login` skill for the step-by-step interactive flow. The helper starts login with `login`, completes approval with `login-poll`, and revokes the device-login session plus removes the local credential with `logout`. `login` and `login-poll` both accept `--base-url` for environments that are not already configured.
+Use the sibling `login` skill for the step-by-step interactive flow. The helper starts login with `login`, stores temporary local polling state (`0600`), completes approval with `login-poll`, and revokes the device-login session plus removes the local credential with `logout`. `login` accepts `--base-url` for environments that are not already configured; `login-poll` uses the stored base URL from the pending login state.
 
-On approval, the helper stores `SUM_API_DEVICE_LOGIN_CREDENTIAL` in `~/.summation/skill-config`. Do not print or quote `device_code` in chat; it should only be carried forward into `login-poll`.
+On approval, the helper stores `SUM_API_DEVICE_LOGIN_CREDENTIAL` in `~/.summation/skill-config`. Do not print or quote `device_code` in chat; the helper now keeps it only in temporary local polling state until `login-poll` finishes.
 
 ## M2M Flow
 
