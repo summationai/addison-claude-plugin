@@ -1405,7 +1405,7 @@ def main() -> int:
     add_base_url_argument(login_parser)
     login_parser.add_argument(
         "--surface",
-        default="claude-code",
+        required=True,
         choices=DEVICE_LOGIN_ALLOWED_SURFACES,
         help="Client surface identifier for the device-login request",
     )

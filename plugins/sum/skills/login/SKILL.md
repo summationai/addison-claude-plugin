@@ -16,8 +16,11 @@ Set up sum-api credentials through device login by default. The helper lives in 
 2. Start device login:
 
 ```bash
-python3 ../api/scripts/sum_api.py login --base-url <BASE_URL> [--profile <NAME>] [--surface claude-code|claude-desktop]
+python3 ../api/scripts/sum_api.py login --base-url <BASE_URL> [--profile <NAME>] --surface <claude-code|claude-desktop>
 ```
+
+   Always pass `--surface`. Use `claude-desktop` when running in Claude Desktop and
+   `claude-code` when running in Claude Code. Do not rely on a helper default.
 
 3. Present the returned `verification_uri_complete` and `user_code` to the user. Tell them to open the link themselves; do not open it for them. Use this shape:
 
@@ -87,6 +90,7 @@ Tell them to come back with `/sum:login` once they have the three values — and
 ## Rules
 
 - Prefer device login over M2M whenever both are viable.
+- Always pass `--surface` on `login`; never rely on a default surface label.
 - Never print, log, or commit the device-login credential, access token, or client secret.
 - Multiple environments → named profiles (`--profile`), switch with `use-profile <name>`.
 - The helper stores temporary polling state locally after `login`; do not surface `device_code`, `interval`, or `expires_in` in chat.
