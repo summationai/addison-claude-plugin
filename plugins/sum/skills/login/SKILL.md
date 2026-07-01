@@ -10,8 +10,9 @@ Set up sum-api credentials through device login by default. The helper lives in 
 ## Flow
 
 1. Ask the user to choose the Summation environment before running `login`. Do not silently assume the sandbox default.
-   - If the user already named an environment or base URL in the conversation, use that.
-   - Otherwise ask explicitly which environment to use. Offer `https://sandbox-api.summation.com` as the default option, but wait for confirmation before continuing.
+   - If the user already named an environment with base URL in the conversation, use that.
+   - Otherwise ask explicitly which environment to use, with `Production` as the default option: `https://api.summation.com`.
+   - If the user needs a different environment than production (exclusive tenant), ask for the exact base URL before continuing.
    - Also ask whether to use a profile name for this login.
 2. Start device login:
 
