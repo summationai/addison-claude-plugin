@@ -6,11 +6,7 @@
   "plugins": [
     {
       "name": "addison",
-      "source": {
-        "type": "github",
-        "repo": "summationai/addison-claude-plugin",
-        "path": "plugins/addison"
-      },
+      "source": "./plugins/addison",
       "description": "Addison, Summation's AI data analyst, in Claude Code: ask data questions, search the catalog, run bounded SQL, generate + validate reports, export PDF/DOCX/Markdown.",
       "version": "0.7.0",
       "author": {
