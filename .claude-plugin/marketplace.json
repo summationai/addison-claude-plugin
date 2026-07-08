@@ -1,14 +1,18 @@
 {
-  "name": "summationai",
+  "name": "summation",
   "owner": {
     "name": "Summation"
   },
   "plugins": [
     {
-      "name": "sum",
-      "source": "./plugins/sum",
-      "description": "Work with Summation through the public sum-api: catalog discovery, bounded SQL, report generation with validation, and PDF/DOCX/Markdown export.",
-      "version": "0.6.2",
+      "name": "addison",
+      "source": {
+        "type": "github",
+        "repo": "summationai/addison-claude-plugin",
+        "path": "plugins/addison"
+      },
+      "description": "Addison, Summation's AI data analyst, in Claude Code: ask data questions, search the catalog, run bounded SQL, generate + validate reports, export PDF/DOCX/Markdown.",
+      "version": "0.7.0",
       "author": {
         "name": "Summation"
       },

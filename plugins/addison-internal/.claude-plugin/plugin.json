@@ -1,0 +1,18 @@
+{
+  "name": "addison-internal",
+  "displayName": "Addison (Internal)",
+  "version": "0.7.0",
+  "description": "Internal edition of the Addison plugin: any environment (sandbox/staging/prod/per-cluster), device login + M2M, profiles, and the full helper surface. Summation employees only.",
+  "author": {
+    "name": "Summation"
+  },
+  "homepage": "https://summation.com",
+  "license": "MIT",
+  "repository": "https://github.com/summationai/addison-claude-plugin",
+  "keywords": [
+    "data",
+    "analytics",
+    "internal",
+    "sum-api"
+  ]
+}

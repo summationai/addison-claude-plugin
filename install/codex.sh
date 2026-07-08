@@ -6,7 +6,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SRC="$REPO_ROOT/plugins/sum/skills/api"
+SRC="$REPO_ROOT/plugins/addison/skills/api"
 DEST_DIR="${CODEX_SKILLS_DIR:-$HOME/.codex/skills}"
 DEST="$DEST_DIR/summation"
 
