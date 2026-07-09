@@ -27,7 +27,14 @@ DEVICE_LOGIN_CREDENTIAL_KEY = "SUM_API_DEVICE_LOGIN_CREDENTIAL"
 DEVICE_LOGIN_ALLOWED_SURFACES = (
     "claude-code",
     "claude-desktop",
+    "codex",
+    "summation-skill",
 )
+DEVICE_LOGIN_SURFACE_ALIASES = {
+    # Auth-service does not allowlist "codex" yet. Preserve a friendly client
+    # surface in plugin instructions while sending the accepted backend label.
+    "codex": "summation-skill",
+}
 PROFILE_OVERRIDE: str | None = None
 BASE_URL_OVERRIDE: str | None = None
 
@@ -317,6 +324,10 @@ def _write_device_login_states(states: dict[str, dict[str, Any]]) -> pathlib.Pat
     path.write_text(json.dumps(states, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     os.chmod(path, 0o600)
     return path
+
+
+def device_login_server_surface(surface: str) -> str:
+    return DEVICE_LOGIN_SURFACE_ALIASES.get(surface, surface)
 
 
 def store_pending_device_login(
@@ -977,7 +988,7 @@ def command_login(args: argparse.Namespace) -> None:
         request_json(
             "POST",
             "/v1/auth/device-logins",
-            body={"surface": args.surface},
+            body={"surface": device_login_server_surface(args.surface)},
         )
     )
     expires_in = response["expires_in"]
@@ -1149,7 +1160,137 @@ def _claude_binary() -> str:
     return claude_bin
 
 
-def command_mcp_connect(_: argparse.Namespace) -> None:
+def codex_config_path() -> pathlib.Path:
+    codex_home = pathlib.Path(os.getenv("CODEX_HOME", pathlib.Path.home() / ".codex")).expanduser()
+    return codex_home / "config.toml"
+
+
+def toml_string(value: str) -> str:
+    return json.dumps(value)
+
+
+def is_toml_table_header(line: str) -> bool:
+    stripped = line.strip()
+    return stripped.startswith("[") and stripped.endswith("]")
+
+
+def toml_table_name(line: str) -> str | None:
+    stripped = line.strip()
+    if stripped.startswith("[[") and stripped.endswith("]]"):
+        return stripped[2:-2].strip()
+    if stripped.startswith("[") and stripped.endswith("]"):
+        return stripped[1:-1].strip()
+    return None
+
+
+def replace_toml_table(content: str, table_name: str, block: str) -> str:
+    lines = content.splitlines()
+    out: list[str] = []
+    replaced = False
+    header = f"[{table_name}]"
+    index = 0
+    while index < len(lines):
+        if lines[index].strip() == header:
+            if out and out[-1].strip():
+                out.append("")
+            out.extend(block.splitlines())
+            replaced = True
+            index += 1
+            while index < len(lines) and not is_toml_table_header(lines[index]):
+                index += 1
+            if index < len(lines) and out and out[-1].strip():
+                out.append("")
+            continue
+        out.append(lines[index])
+        index += 1
+    if not replaced:
+        if out and out[-1].strip():
+            out.append("")
+        out.extend(block.splitlines())
+    return "\n".join(out).rstrip() + "\n"
+
+
+def remove_toml_table_family(content: str, table_name: str) -> tuple[str, bool]:
+    lines = content.splitlines()
+    out: list[str] = []
+    removed = False
+    index = 0
+    while index < len(lines):
+        current_table = toml_table_name(lines[index])
+        if current_table == table_name or (
+            current_table is not None and current_table.startswith(f"{table_name}.")
+        ):
+            removed = True
+            index += 1
+            while index < len(lines) and not is_toml_table_header(lines[index]):
+                index += 1
+            continue
+        out.append(lines[index])
+        index += 1
+    return "\n".join(out).rstrip() + ("\n" if out else ""), removed
+
+
+def write_codex_config(path: pathlib.Path, content: str) -> pathlib.Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    os.chmod(path, 0o600)
+    return path
+
+
+def command_codex_mcp_connect() -> None:
+    credential = device_login_credential()
+    if not credential:
+        raise SystemExit("No device-login credential found. Run login first, then mcp-connect.")
+    path = codex_config_path()
+    content = path.read_text(encoding="utf-8") if path.exists() else ""
+    block = "\n".join([
+        f"[mcp_servers.{MCP_SERVER_NAME}]",
+        f"url = {toml_string(mcp_url())}",
+        f"http_headers = {{ \"Authorization\" = {toml_string(f'Bearer {credential}')} }}",
+        "enabled = true",
+    ])
+    write_codex_config(
+        path,
+        replace_toml_table(content, f"mcp_servers.{MCP_SERVER_NAME}", block),
+    )
+    print(json_dumps({
+        "status": "connected",
+        "client": "codex",
+        "server": MCP_SERVER_NAME,
+        "url": mcp_url(),
+        "config_file": str(path),
+        "config_file_mode": config_file_mode(path),
+        "note": "Start a new Codex thread or restart Codex to load the Summation tools.",
+    }))
+
+
+def command_codex_mcp_disconnect() -> None:
+    path = codex_config_path()
+    if not path.exists():
+        print(json_dumps({
+            "status": "not_registered",
+            "client": "codex",
+            "server": MCP_SERVER_NAME,
+            "config_file": str(path),
+        }))
+        return
+    content = path.read_text(encoding="utf-8")
+    next_content, removed = remove_toml_table_family(content, f"mcp_servers.{MCP_SERVER_NAME}")
+    if removed:
+        write_codex_config(path, next_content)
+    print(json_dumps({
+        "status": "disconnected" if removed else "not_registered",
+        "client": "codex",
+        "server": MCP_SERVER_NAME,
+        "config_file": str(path),
+        "config_file_mode": config_file_mode(path),
+    }))
+
+
+def command_mcp_connect(args: argparse.Namespace) -> None:
+    if args.client == "codex":
+        command_codex_mcp_connect()
+        return
     # Register the hosted Summation MCP server with Claude Code, passing the stored
     # device-login credential as a bearer header. The credential moves process-to-process
     # via argv (no shell, no stdout), so it never appears in the conversation.
@@ -1181,7 +1322,10 @@ def command_mcp_connect(_: argparse.Namespace) -> None:
     }))
 
 
-def command_mcp_disconnect(_: argparse.Namespace) -> None:
+def command_mcp_disconnect(args: argparse.Namespace) -> None:
+    if args.client == "codex":
+        command_codex_mcp_disconnect()
+        return
     result = subprocess.run(
         [_claude_binary(), "mcp", "remove", "-s", "user", MCP_SERVER_NAME],
         capture_output=True, text=True, check=False,
@@ -1540,14 +1684,26 @@ def main() -> int:
 
     mcp_connect_parser = subparsers.add_parser(
         "mcp-connect",
-        help="Register the hosted Summation MCP server with Claude Code using the stored credential",
+        help="Register the hosted Summation MCP server using the stored credential",
     )
     add_profile_argument(mcp_connect_parser)
+    mcp_connect_parser.add_argument(
+        "--client",
+        choices=("claude", "codex"),
+        default="claude",
+        help="Client config to update",
+    )
     mcp_connect_parser.set_defaults(func=command_mcp_connect)
 
     mcp_disconnect_parser = subparsers.add_parser(
         "mcp-disconnect",
-        help="Remove the Summation MCP server registration from Claude Code",
+        help="Remove the Summation MCP server registration",
+    )
+    mcp_disconnect_parser.add_argument(
+        "--client",
+        choices=("claude", "codex"),
+        default="claude",
+        help="Client config to update",
     )
     mcp_disconnect_parser.set_defaults(func=command_mcp_disconnect)
 

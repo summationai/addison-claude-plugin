@@ -606,7 +606,7 @@ def auth_headers(required: bool = True) -> dict[str, str]:
         token = setting("SUM_API_ACCESS_TOKEN")
     if not token and required:
         if EDITION == "external":
-            raise SystemExit("Not signed in to Summation. Run /addison:login to connect.")
+            raise SystemExit("Not signed in to Summation. Run $addison-login to connect.")
         token = exchange_m2m_token()
     if not token:
         return {}
