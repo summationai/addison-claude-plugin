@@ -48,7 +48,7 @@ cat > "$DST/.claude-plugin/plugin.json" <<JSON
   },
   "homepage": "https://summation.com",
   "license": "MIT",
-  "repository": "https://github.com/summationai/addison-claude-plugin",
+  "repository": "https://github.com/summationai/addison-plugin",
   "keywords": [
     "data",
     "analytics",
