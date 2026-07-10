@@ -13,7 +13,13 @@ Plugin marketplace for Summation. One plugin, `addison`, brings Addison to Claud
 
 Then `/addison:signin` — one browser sign-in connects both the API credential and the Summation MCP server. (Once browser-based OAuth ships server-side, this becomes `/mcp` → sign in.)
 
-**claude.ai / Claude Desktop (org admins):** Admin console → Plugins → Add plugins → *Sync from GitHub* (this repo) or *Upload a file* (`dist/addison-plugin.zip`). Members then install from the org library.
+**claude.ai / Claude Desktop (org admins):** Admin console → Plugins → Add plugins → *Sync from GitHub* (this repo) or *Upload a file* using the always-current release zip:
+
+```
+https://github.com/summationai/addison-plugin/releases/latest/download/addison-plugin.zip
+```
+
+Members then install from the org library.
 
 > Desktop note: skill scripts run in the code-execution sandbox. The org's code-execution network egress must allow the sum-api host(s) (Capabilities → Code execution), and credentials must be reachable from the sandbox — see the dogfood matrix in the rollout doc.
 
@@ -72,4 +78,13 @@ claude plugin validate ./plugins/addison     # validate manifest
 
 ## Release
 
-Bump `version` in `plugins/addison/.claude-plugin/plugin.json` AND `.claude-plugin/marketplace.json` (users only receive updates on version bumps), then run `./build-editions.sh`. Update `marketplace.internal.json` to match.
+1. Bump `version` in `plugins/addison/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and `.claude-plugin/marketplace.internal.json` (marketplace users only receive updates on a version bump).
+2. Run `./build-editions.sh` to regenerate `plugins/addison-internal`, and commit. Merge to `main`.
+3. Tag the release and push the tag:
+   ```bash
+   git tag v0.8.2 && git push origin v0.8.2
+   ```
+   The `Release plugin zip` GitHub Action builds `addison-plugin.zip` and publishes it as a GitHub Release marked **Latest**. The tag must match `plugin.json`'s version or the workflow fails.
+
+Claude Desktop admins then upload from the stable latest URL (no rebuild needed):
+`https://github.com/summationai/addison-plugin/releases/latest/download/addison-plugin.zip`

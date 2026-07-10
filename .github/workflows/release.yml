@@ -1,0 +1,44 @@
+name: Release plugin zip
+
+# Publish the Claude Desktop "Upload a file" artifact on every version tag.
+# Tag with `vX.Y.Z` (matching plugins/addison/.claude-plugin/plugin.json) and push it:
+#   git tag v0.8.2 && git push origin v0.8.2
+# GitHub marks the newest release "Latest", so admins can always fetch:
+#   https://github.com/summationai/addison-plugin/releases/latest/download/addison-plugin.zip
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify tag matches plugin version
+        run: |
+          version=$(python3 -c "import json; print(json.load(open('plugins/addison/.claude-plugin/plugin.json'))['version'])")
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$version" != "$tag" ]; then
+            echo "::error::tag v$tag does not match plugin.json version $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_ENV"
+
+      - name: Build the external plugin zip
+        run: ./build-zip.sh
+
+      - name: Publish GitHub Release with the zip (marked latest)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/addison-plugin.zip \
+            --title "Addison $GITHUB_REF_NAME" \
+            --generate-notes \
+            --latest
