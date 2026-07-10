@@ -1,5 +1,5 @@
 ---
-name: logout
+name: signout
 description: Disconnect Claude from Summation - revoke the stored device-login session, remove the local credential, and deregister the Summation MCP server. Use when the user wants to disconnect, sign in as a different Summation user, or clear a stale session.
 ---
 

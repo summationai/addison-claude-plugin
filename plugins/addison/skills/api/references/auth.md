@@ -4,7 +4,7 @@ The skill must use public `sum-api` authentication only. This build is productio
 
 ## Supported Runtime Inputs
 
-Device-login credential (stored by the `login` flow):
+Device-login credential (stored by the `signin` flow):
 
 ```bash
 SUM_API_DEVICE_LOGIN_CREDENTIAL=sm_dls_...
@@ -52,13 +52,13 @@ The helper resolves auth in this order:
 1. `SUM_API_DEVICE_LOGIN_CREDENTIAL`
 2. `SUM_API_ACCESS_TOKEN`
 
-With neither present, authenticated commands exit with "Not signed in to Summation. Run /addison:login to connect."
+With neither present, authenticated commands exit with "Not signed in to Summation. Run /addison:signin to connect."
 
 ## Device Login Flow
 
 Device login is the only interactive auth path.
 
-Use the sibling `login` skill for the step-by-step interactive flow. The helper starts login with `login`, stores temporary local polling state (`0600`), completes approval with `login-poll`, registers the hosted MCP server with `mcp-connect`, and revokes the device-login session plus removes the local credential with `logout` (pair with `mcp-disconnect`).
+Use the sibling `signin` skill for the step-by-step interactive flow. The helper starts login with `login`, stores temporary local polling state (`0600`), completes approval with `login-poll`, registers the hosted MCP server with `mcp-connect`, and revokes the device-login session plus removes the local credential with `logout` (pair with `mcp-disconnect`).
 
 On approval, the helper stores `SUM_API_DEVICE_LOGIN_CREDENTIAL` in `~/.summation/summation-config`. Do not print or quote `device_code` in chat; the helper keeps it only in temporary local polling state until `login-poll` finishes.
 

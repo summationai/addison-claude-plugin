@@ -1,5 +1,5 @@
 ---
-name: logout
+name: signout
 description: Revoke the stored Summation device-login session and remove only `SUM_API_DEVICE_LOGIN_CREDENTIAL` from the active or selected profile. Use when the user wants to disconnect Claude from Summation, sign in again as a different Summation user, or clear a stale device-login session.
 ---
 
