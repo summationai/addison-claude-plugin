@@ -8,7 +8,7 @@
       "name": "addison-internal",
       "source": "./plugins/addison-internal",
       "description": "Internal edition of Addison: any environment, device login + M2M, profiles, full helper surface. Summation employees only.",
-      "version": "0.8.1",
+      "version": "0.8.2",
       "author": {
         "name": "Summation"
       },

@@ -1,7 +1,7 @@
 {
   "name": "addison-internal",
   "displayName": "Addison (Internal)",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Internal edition of the Addison plugin: any environment (sandbox/staging/prod/per-cluster), device login + M2M, profiles, and the full helper surface. Summation employees only.",
   "author": {
     "name": "Summation"

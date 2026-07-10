@@ -1,7 +1,7 @@
 {
   "name": "addison",
   "displayName": "Addison",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Addison, Summation's AI data analyst, in Claude Code: ask data questions, search the catalog, run bounded SQL, generate + validate reports, export PDF/DOCX/Markdown. MCP-backed with audit-logged calls.",
   "author": {
     "name": "Summation"
