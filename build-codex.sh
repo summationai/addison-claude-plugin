@@ -79,112 +79,170 @@ for path in dst.rglob("*"):
 
 login_skill = """---
 name: login
-description: Sign in to Summation. Use when the user needs to connect Addison, fix credentials, or when any Summation call fails with 401/403 and no valid config exists.
+description: Verify or reconnect Addison's Codex-managed OAuth session. Use when the user needs to connect Addison or a Summation MCP call reports an authentication error.
 ---
 
 # Addison Login
 
-One browser sign-in connects everything: the sum-api credential and the hosted Summation MCP server. The helper lives in the sibling `api` skill: `../api/scripts/sum_api.py`.
-
-There is exactly one environment: production. Do not ask the user to choose an environment or a profile.
+Codex owns Addison's MCP registration and OAuth session through the installed plugin. Do not run the local device-login helper, write bearer tokens, or edit Codex config.
 
 ## Flow
 
-1. Start device login:
+1. Run `codex mcp remove summation` once to clear any user-level bearer registration left by the pre-OAuth beta. "No MCP server named 'summation' found" is the expected no-op for a clean install; continue to step 2. If Codex reports that it removed the global server, tell the user to start a new thread so the plugin-provided server loads, then stop this run.
+2. Call the Summation MCP `whoami` tool.
+3. If Codex requests authentication, tell the user to complete the browser sign-in. Retry `whoami` after approval.
+4. Report the signed-in identity and organization from the tool result.
 
-```bash
-python3 ../api/scripts/sum_api.py login --surface codex
-```
-
-2. Present only the returned `verification_uri_complete` and `user_code` to the user:
-
-> Open this link and approve to connect Codex to Summation — it expires in 10 minutes.
-> **<verification_uri_complete>**
-> Verification code: **<user_code>**
->
-> You'll approve in your browser; no password or secret is shared in this chat.
-
-Do not print or quote `device_code`, and do not paste raw helper JSON containing internal polling state into chat.
-
-3. Poll immediately until the login reaches a terminal state:
-
-```bash
-python3 ../api/scripts/sum_api.py login-poll
-```
-
-Terminal outcomes:
-
-- `{"status":"approved", ...}`: approval succeeded. The helper stored `SUM_API_DEVICE_LOGIN_CREDENTIAL` in `~/.summation/config` with file mode `0600`. Continue.
-- `{"status":"denied"}`: the user rejected the browser approval. No credential was stored. Offer to start over.
-- `{"status":"expired"}`: the approval link expired. No credential was stored. Offer to start over.
-
-4. Connect the Summation MCP server to Codex:
-
-```bash
-python3 ../api/scripts/sum_api.py mcp-connect --client codex
-```
-
-This writes the hosted MCP server (`https://mcp.summation.com/mcp`) into `~/.codex/config.toml` with the stored credential as a bearer header. The config file is written with mode `0600`, and the credential must never appear in chat. Tell the user to start a new Codex thread or restart Codex to load the Summation tools.
-
-5. Verify:
-
-```bash
-python3 ../api/scripts/sum_api.py doctor
-python3 ../api/scripts/sum_api.py call GET /v1/me
-```
-
-6. Report the signed-in identity, whether the MCP server was registered, and `request_id` on any failure.
-
-## Logout
-
-Revoke the device-login session, remove the local credential, and deregister the MCP server:
-
-```bash
-python3 ../api/scripts/sum_api.py logout
-python3 ../api/scripts/sum_api.py mcp-disconnect --client codex
-```
-
-Always run both commands. `mcp-disconnect --client codex` removes the bearer header from Codex config.
+If authentication still fails without a browser prompt, ask the user to reconnect Addison from its installed plugin authentication control, then retry `whoami`.
 
 ## Rules
 
-- Production only; there is no environment or profile selection. If the user asks about sandbox/staging environments, explain those are available in Summation's internal edition.
-- Never print, log, or commit the device-login credential or any token.
-- The helper stores temporary polling state locally after `login`; do not surface `device_code`, `interval`, or `expires_in` in chat.
-- If a Summation MCP call later fails with an auth error, the stored bearer has likely been revoked or expired: re-run this login flow to mint a fresh credential and re-register the MCP server.
+- Production only. Do not ask the user to choose an environment or profile.
+- Never ask for, print, store, or pass an OAuth token in chat or shell commands.
+- Never run `sum_api.py login`, `mcp-connect`, or `mcp-disconnect` for Codex authentication.
 """
 
 logout_skill = """---
 name: logout
-description: Disconnect Codex from Summation, revoke the stored device-login session, remove the local credential, and deregister the Summation MCP server. Use when the user wants to disconnect, sign in as a different Summation user, or clear a stale session.
+description: Disconnect Addison's Codex-managed OAuth session. Use when the user wants to sign out or switch Summation accounts.
 ---
 
 # Addison Logout
 
-Revoke the stored device-login session, remove `SUM_API_DEVICE_LOGIN_CREDENTIAL`, and deregister the Summation MCP server from Codex. The helper lives in the sibling `api` skill: `../api/scripts/sum_api.py`.
+Codex owns the OAuth session. Disconnect it with:
+
+```bash
+codex mcp logout summation
+codex mcp remove summation
+```
+
+The remove command clears only a user-level registration left by the pre-OAuth beta; it does not remove the plugin-provided server. "No MCP server named 'summation' found" is a successful no-op.
+
+If Python 3 is available, also run `python3 ../api/scripts/sum_api.py logout` once. This revokes and removes any legacy device-login credential from the beta flow; it is not required for native OAuth logout or for new installations.
+
+Do not edit Codex config directly and do not run `mcp-disconnect`. After logout, a Summation MCP tool call should request authentication again. To switch accounts, disconnect first and then run `$addison-login`.
+"""
+
+start_skill = """---
+name: start
+description: Guided first-run setup for Summation in Codex. Use when a user says "set up Summation", "get started with Summation", asks what Summation can do, or has clearly never connected before.
+---
+
+# Summation Start
+
+Codex installs the Summation MCP server with Addison and owns its OAuth session. Do not run local login helpers or edit Codex config.
 
 ## Flow
 
-1. Run logout, then deregister the MCP server:
+### 1. Connect
 
-```bash
-python3 ../api/scripts/sum_api.py logout
-python3 ../api/scripts/sum_api.py mcp-disconnect --client codex
-```
+Run `codex mcp remove summation` once to clear any user-level bearer registration left by the pre-OAuth beta. A not-found result is the expected no-op for a clean install. If Codex reports that it removed the global server, tell the user to start a new thread so the plugin-provided server loads, then stop this run.
 
-2. Interpret the results:
+Call `whoami`. If Codex requests authentication, have the user complete the browser sign-in and retry. On success, show the signed-in identity and organization.
 
-- `logout` -> `{"status":"logged_out", ...}` means the device-login session was revoked and the credential removed. `{"status":"already_logged_out", ...}` means no credential was present.
-- `mcp-disconnect --client codex` -> `{"status":"disconnected"}` means the MCP registration was removed from Codex config. `{"status":"not_registered"}` means nothing was present.
+### 2. Discover
+
+Use `list_data_connections`, `list_connection_datasets`, `search_tables`, `search_views`, and `list_projects` to build a compact source map from real results.
+
+If there are no data connections, stop and send the user to Summation workspace > Connections. If connections exist but expose no attached datasets, explain that the pipe exists but no business data is analyzable yet, then send the user to the same page to attach datasets. Do not present system tables or merely browsable upstream resources as connected business data.
+
+### 3. Meet Addison
+
+Use `get_default_project`. If no project exists, propose creating `getting-started` and call `create_project` only after the user agrees.
+
+Call `list_catalog_entries`. If the project has no attached data, show a short list from `search_tables`, ask which tables to use, and call `attach_catalog_entry` for the user's selections. Then call `ask_analyst` with this request:
+
+> A new user just connected. In three short bullets, explain what you can do with the data you can see, then propose three specific report ideas grounded in the available tables. Keep it under 120 words.
+
+### 4. First Report
+
+Present the three ideas and ask the user to choose one or describe their own. On confirmation, hand off to `$addison-report`. Offer `$addison-validate` before anything is shared externally.
 
 ## Rules
 
-- Always run both commands: a revoked session must not leave a stale bearer header in Codex config.
-- Report both outcomes to the user.
+- Use outcomes in user-facing language. Do not narrate tool names, endpoint paths, or schemas.
+- Never invent data sources, tables, projects, or metrics. Mirror MCP results.
+- Keep the truth ladder explicit: connection, attached dataset, project catalog entry, analyzable by Addison.
+- If a tool fails, report its request id when available and preserve the user's place in the flow.
+"""
+
+doctor_skill = """---
+name: doctor
+description: Diagnose Addison MCP connectivity and OAuth in Codex. Use when Summation calls fail, authentication seems stale, or the user asks whether Addison is connected correctly.
+---
+
+# Summation Doctor
+
+Codex owns the Summation MCP server and OAuth session. Do not inspect or edit Codex config, and do not run the local device-login helper.
+
+1. Call `whoami`.
+2. If Codex requests authentication, have the user complete browser sign-in and retry.
+3. If identity succeeds, call `get_default_project` and `list_data_connections` to distinguish an auth problem from an empty workspace.
+4. Report the signed-in identity, organization, default project, and connection count. Include a request id on failure when available.
+
+If authentication still fails without a browser prompt, hand off to `$addison-login` for the native reconnect flow.
 """
 
 (dst / "skills" / "login" / "SKILL.md").write_text(login_skill, encoding="utf-8")
 (dst / "skills" / "logout" / "SKILL.md").write_text(logout_skill, encoding="utf-8")
+(dst / "skills" / "start" / "SKILL.md").write_text(start_skill, encoding="utf-8")
+(dst / "skills" / "doctor" / "SKILL.md").write_text(doctor_skill, encoding="utf-8")
+
+api_path = dst / "skills" / "api" / "SKILL.md"
+api_text = api_path.read_text(encoding="utf-8")
+api_replacements = [
+    (
+        "**MCP-first:** when the `summation` MCP server is connected, prefer its tools for all data operations (see \"MCP Relationship\" below). Use this script as the fallback when the server is not connected, and always for auth plumbing (`login`, `login-poll`, `logout`, `mcp-connect`, `doctor`).",
+        "**MCP-first:** prefer the `summation` MCP tools for normal Codex work. Codex owns the plugin's MCP registration and OAuth session. Use this script only as an explicit REST fallback when a separate local sum-api credential already exists; never use it for Codex MCP authentication.",
+    ),
+    (
+        "3. Authenticate with the stored device-login credential only.",
+        "3. For REST fallback only, authenticate with a separately stored device-login credential.",
+    ),
+    (
+        "- `mcp-connect` — register the hosted Summation MCP server with Codex using the stored credential (run after login; credential moves process-to-process, never through chat).\n- `mcp-disconnect` — remove that MCP registration (run on logout).\n",
+        "",
+    ),
+    (
+        "For interactive user login, use the sibling `login` skill. It owns the device-login flow, what to show the user, polling behavior, MCP registration, and logout guidance. If no credential is stored, the helper exits with \"Not signed in to Summation. Run $addison-login to connect.\" — do that, don't improvise auth.",
+        "The sibling `login` skill owns native Codex MCP authentication. A local device-login credential is optional and applies only to direct REST fallback calls. Never copy an MCP OAuth token into this helper or use `mcp-connect` from Codex.",
+    ),
+    (
+        "The hosted Summation MCP server (`summation`, `https://mcp.summation.com/mcp`) exposes 41 curated, non-destructive tools over the same public API: multi-turn analyst (`ask_analyst` → `reply_to_analyst` with context), identity/project bootstrap (`whoami`, `get_default_project`, `create_project`), source discovery (connections/datasets), tables/views/query with previews and lineage, files (upload/download/import), reports, playbooks, and schedules. `$addison-login` registers it via `mcp-connect`.",
+        "The hosted Summation MCP server (`summation`, `https://mcp.summation.com/mcp`) exposes 41 curated, non-destructive tools over the same public API: multi-turn analyst (`ask_analyst` → `reply_to_analyst` with context), identity/project bootstrap (`whoami`, `get_default_project`, `create_project`), source discovery (connections/datasets), tables/views/query with previews and lineage, files (upload/download/import), reports, playbooks, and schedules. The plugin manifest registers it and Codex manages OAuth.",
+    ),
+    (
+        "Fall back to the script when the server is not connected; auth plumbing always goes through the script.",
+        "Use the script only for a deliberate REST fallback with its own local credential. MCP authentication never goes through the script in Codex.",
+    ),
+    (
+        "- **Auth errors mean a revoked/expired bearer**: re-run `$addison-login` (it mints a fresh credential and re-registers the server).",
+        "- **Auth errors**: run `$addison-login`; Codex handles browser OAuth and retries the MCP connection.",
+    ),
+]
+for before, after in api_replacements:
+    if before not in api_text:
+        raise SystemExit(f"Codex API overlay anchor not found: {before[:80]}")
+    api_text = api_text.replace(before, after)
+api_path.write_text(api_text, encoding="utf-8")
+
+auth_path = dst / "skills" / "api" / "references" / "auth.md"
+auth_text = auth_path.read_text(encoding="utf-8")
+auth_replacements = [
+    (
+        "Use the sibling `login` skill for the step-by-step interactive flow. The helper starts login with `login`, stores temporary local polling state (`0600`), completes approval with `login-poll`, registers the hosted MCP server with `mcp-connect`, and revokes the device-login session plus removes the local credential with `logout` (pair with `mcp-disconnect`).",
+        "The helper's device-login flow is only for direct REST fallback. The sibling `login` skill handles Codex MCP authentication natively; never use `mcp-connect` or `mcp-disconnect` for Codex.",
+    ),
+    (
+        "`mcp-connect` registers `https://mcp.summation.com/mcp` with Codex (user scope), passing the stored credential as a bearer header via subprocess argv — never through chat, stdout, or a shell string. `mcp-disconnect` removes the registration. A revoked/expired credential surfaces as MCP auth errors; re-run the login flow to fix.",
+        "The plugin's `.mcp.json` registers `https://mcp.summation.com/mcp`, and Codex owns the OAuth session. Do not place MCP tokens in local config or pass them to this helper. Use `$addison-login` when native MCP authentication needs to be renewed.",
+    ),
+]
+for before, after in auth_replacements:
+    if before not in auth_text:
+        raise SystemExit(f"Codex auth overlay anchor not found: {before[:80]}")
+    auth_text = auth_text.replace(before, after)
+auth_path.write_text(auth_text, encoding="utf-8")
 
 plugin_json = {
     "name": "addison",
@@ -199,10 +257,11 @@ plugin_json = {
     "license": src_manifest.get("license", "MIT"),
     "keywords": sorted(set(src_manifest.get("keywords", []) + ["codex", "mcp"])),
     "skills": "./skills/",
+    "mcpServers": "./.mcp.json",
     "interface": {
         "displayName": "Addison",
         "shortDescription": "Ask Addison data questions from Codex.",
-        "longDescription": "Addison brings Summation's AI data analyst into Codex for governed data questions, catalog discovery, SQL, reports, validation, and scheduling. One browser approval stores a local credential and connects the hosted Summation MCP server.",
+        "longDescription": "Addison brings Summation's AI data analyst into Codex for governed data questions, catalog discovery, SQL, reports, validation, and scheduling. Codex connects to the hosted Summation MCP server and manages browser OAuth natively.",
         "developerName": "Summation",
         "category": "Data",
         "capabilities": ["Interactive", "Data analysis", "Reports", "MCP"],
@@ -215,6 +274,15 @@ plugin_json = {
         ],
     },
 }
+write_json(dst / ".mcp.json", {
+    "mcpServers": {
+        "summation": {
+            "type": "http",
+            "url": "https://mcp.summation.com/mcp",
+            "oauth_resource": "https://mcp.summation.com",
+        },
+    },
+})
 write_json(dst / ".codex-plugin" / "plugin.json", plugin_json)
 
 entry = {
@@ -225,7 +293,7 @@ entry = {
     },
     "policy": {
         "installation": "AVAILABLE",
-        "authentication": "ON_USE",
+        "authentication": "ON_INSTALL",
     },
     "category": "Data",
 }

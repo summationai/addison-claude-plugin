@@ -25,7 +25,7 @@ codex plugin marketplace add .
 codex plugin add addison@summation
 ```
 
-Then start a new Codex thread and use `$addison-login`. One browser sign-in stores the API credential and registers the Summation MCP server in `~/.codex/config.toml`.
+The plugin registers the hosted Summation MCP server, and Codex manages browser OAuth during installation. No local credential, Python login helper, or Codex config edit is required.
 
 ## Contents
 
@@ -65,7 +65,7 @@ user approval before publishing anywhere.
 
 ## Editions
 
-`plugins/addison` (external, source of truth) ships to the public marketplace: production-pinned, device-login only, host-pinned HTTPS requests. `plugins/addison-internal` is **generated** by `./build-editions.sh` — same skills with `EDITION="internal"` baked into the helper (any environment, M2M, profiles) plus the overlays in `internal/overlay/`. `plugins/codex` is **generated** by `./build-codex.sh` from the external plugin plus Codex manifest and login/logout overlays. Never edit generated plugin directories directly.
+`plugins/addison` (external, source of truth) ships to the public marketplace: production-pinned, device-login only, host-pinned HTTPS requests. `plugins/addison-internal` is **generated** by `./build-editions.sh` — same skills with `EDITION="internal"` baked into the helper (any environment, M2M, profiles) plus the overlays in `internal/overlay/`. `plugins/codex` is **generated** by `./build-codex.sh` from the external plugin plus its native MCP manifest and Codex auth/onboarding overlays. Never edit generated plugin directories directly.
 
 The edition is a build-time constant, not an env var, so the external artifact contains no unlock path.
 

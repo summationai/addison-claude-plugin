@@ -58,13 +58,13 @@ With neither present, authenticated commands exit with "Not signed in to Summati
 
 Device login is the only interactive auth path.
 
-Use the sibling `login` skill for the step-by-step interactive flow. The helper starts login with `login`, stores temporary local polling state (`0600`), completes approval with `login-poll`, registers the hosted MCP server with `mcp-connect`, and revokes the device-login session plus removes the local credential with `logout` (pair with `mcp-disconnect`).
+The helper's device-login flow is only for direct REST fallback. The sibling `login` skill handles Codex MCP authentication natively; never use `mcp-connect` or `mcp-disconnect` for Codex.
 
 On approval, the helper stores `SUM_API_DEVICE_LOGIN_CREDENTIAL` in `~/.summation/config`. Do not print or quote `device_code` in chat; the helper keeps it only in temporary local polling state until `login-poll` finishes.
 
 ## MCP Registration
 
-`mcp-connect` registers `https://mcp.summation.com/mcp` with Codex (user scope), passing the stored credential as a bearer header via subprocess argv — never through chat, stdout, or a shell string. `mcp-disconnect` removes the registration. A revoked/expired credential surfaces as MCP auth errors; re-run the login flow to fix.
+The plugin's `.mcp.json` registers `https://mcp.summation.com/mcp`, and Codex owns the OAuth session. Do not place MCP tokens in local config or pass them to this helper. Use `$addison-login` when native MCP authentication needs to be renewed.
 
 ## Identity Rules
 

@@ -9,11 +9,11 @@ Use Summation through the public `sum-api`. Do not call internal services direct
 
 ## Core Workflow
 
-**MCP-first:** when the `summation` MCP server is connected, prefer its tools for all data operations (see "MCP Relationship" below). Use this script as the fallback when the server is not connected, and always for auth plumbing (`login`, `login-poll`, `logout`, `mcp-connect`, `doctor`).
+**MCP-first:** prefer the `summation` MCP tools for normal Codex work. Codex owns the plugin's MCP registration and OAuth session. Use this script only as an explicit REST fallback when a separate local sum-api credential already exists; never use it for Codex MCP authentication.
 
 1. Fetch the live OpenAPI document from `https://api.summation.com/openapi.json`.
 2. Inspect tags, operation IDs, schemas, and examples before choosing an endpoint.
-3. Authenticate with the stored device-login credential only.
+3. For REST fallback only, authenticate with a separately stored device-login credential.
 4. Call `sum-api`, then summarize the result with request IDs and relevant pagination details.
 
 There is a single environment: production (`https://api.summation.com`). The helper pins every request to it — do not ask the user to choose an environment.
@@ -43,8 +43,6 @@ python3 $SKILL/scripts/sum_api.py operation list_agent_projects_v1_projects_get
 - `login` — start device login, store temporary local polling state (`0600`), and return chat-safe fields (`verification_uri_complete`, `user_code`, `expires_in`).
 - `login-poll` — poll the locally pending device login to terminal state; on `approved` it stores the device-login credential locally and clears the temporary polling state.
 - `logout` — revoke the stored device-login session and remove its local credential.
-- `mcp-connect` — register the hosted Summation MCP server with Codex using the stored credential (run after login; credential moves process-to-process, never through chat).
-- `mcp-disconnect` — remove that MCP registration (run on logout).
 - `doctor` — sanity check (base URL, config file, OpenAPI reachability, auth inputs).
 - `preflight` — authenticated environment summary: identity, org, projects, tables, views, connections (counts + names, secrets-safe).
 - `audit [--tail N]` — print recent API audit lines; every call appends `{ts, method, path, status, duration_ms, request_id, profile}` to `~/.summation/audit.jsonl`.
@@ -72,7 +70,7 @@ python3 $SKILL/scripts/sum_api.py call --stream \
 
 Device login only. The stored credential (`SUM_API_DEVICE_LOGIN_CREDENTIAL` in `~/.summation/config`, file mode `0600`) authenticates every call; `SUM_API_ACCESS_TOKEN` is honored if present. There is no M2M path in this build.
 
-For interactive user login, use the sibling `login` skill. It owns the device-login flow, what to show the user, polling behavior, MCP registration, and logout guidance. If no credential is stored, the helper exits with "Not signed in to Summation. Run $addison-login to connect." — do that, don't improvise auth.
+The sibling `login` skill owns native Codex MCP authentication. A local device-login credential is optional and applies only to direct REST fallback calls. Never copy an MCP OAuth token into this helper or use `mcp-connect` from Codex.
 
 Never write credentials into committed skill source, generated examples, commits, logs, or PR descriptions.
 
@@ -108,13 +106,13 @@ Read `references/openapi.md` when route selection, pagination, streaming, idempo
 
 ## MCP Relationship — MCP-first
 
-The hosted Summation MCP server (`summation`, `https://mcp.summation.com/mcp`) exposes 41 curated, non-destructive tools over the same public API: multi-turn analyst (`ask_analyst` → `reply_to_analyst` with context), identity/project bootstrap (`whoami`, `get_default_project`, `create_project`), source discovery (connections/datasets), tables/views/query with previews and lineage, files (upload/download/import), reports, playbooks, and schedules. `$addison-login` registers it via `mcp-connect`.
+The hosted Summation MCP server (`summation`, `https://mcp.summation.com/mcp`) exposes 41 curated, non-destructive tools over the same public API: multi-turn analyst (`ask_analyst` → `reply_to_analyst` with context), identity/project bootstrap (`whoami`, `get_default_project`, `create_project`), source discovery (connections/datasets), tables/views/query with previews and lineage, files (upload/download/import), reports, playbooks, and schedules. The plugin manifest registers it and Codex manages OAuth.
 
-**When the `summation` MCP server is connected, prefer its tools over this script for all data operations.** Fall back to the script when the server is not connected; auth plumbing always goes through the script.
+**When the `summation` MCP server is connected, prefer its tools over this script for all data operations.** Use the script only for a deliberate REST fallback with its own local credential. MCP authentication never goes through the script in Codex.
 
 Client-side behaviors when calling the MCP tools:
 
 - **Long tools return one buffered result, not a stream.** `ask_analyst`, `start_report`, `validate_report`, and `import_file_to_table` complete in ~15-60s and arrive as a single result. Tell the user Addison is working; do not treat silence as failure before ~120s.
-- **Auth errors mean a revoked/expired bearer**: re-run `$addison-login` (it mints a fresh credential and re-registers the server).
+- **Auth errors**: run `$addison-login`; Codex handles browser OAuth and retries the MCP connection.
 - **Known API bug**: `get_view`/`preview_view_data` can 404 on ids returned by `search_views` (list/show split; fix tracked upstream). Fall back to the tables path or note the limitation.
 - `create_schedule` sends email — confirm recipients and cadence verbatim with the user first, same as the REST rule above.
