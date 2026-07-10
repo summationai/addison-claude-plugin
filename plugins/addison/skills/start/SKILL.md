@@ -36,10 +36,10 @@ Run `preflight`. Two checks, in order — **both must pass before steps 3–4**:
 - Offer both paths: **(a) connect it right here** — hand off to the sibling `connect` skill (collects non-secret settings in chat, takes the secret via a local file so it never enters the conversation, creates + tests the connection); **(b) the workspace → Connections page** if they prefer the webapp. Never ask for a password in chat; if one gets pasted anyway, follow the `connect` skill's salvage rule (proceed + advise rotation), don't bounce them.
 - After a connection is created (either path): re-run `preflight` and continue from here.
 
-**Gate 2b — `sections.connections.datasets_total` must be > 0.** A connection is a credentialed pipe; only **attached datasets** are analyzable. Browsable source databases/tables (`browse_connection_resources`) are what *could* be attached — they are NOT data and never clear this gate. If `datasets_total` is 0:
+**Gate 2b — `sections.connections.datasets_total` must be > 0.** A connection is a credentialed pipe; only **attached datasets** are analyzable. Browsable source databases/tables (`browse_data_connection_resources`) are what *could* be attached — they are NOT data and never clear this gate. If `datasets_total` is 0:
 - Keep step 2 in the amber `blocked` state. Do not proceed. Do not introduce Addison to an empty room.
-- Optionally browse the connection (`call POST /v1/connections/<ID>/resources --body '{"max_results": 200}'`) and show the tree as a **preview of what they can attach** — labeled exactly that way.
-- Hand off: open the connection in workspace → **Connections**, attach the datasets (tables) they want analyzed. (No public API for dataset attachment yet — this step is webapp-only.)
+- Optionally browse the connection (`call POST /v1/connections/data/<ID>/resources --body '{"max_results": 200}'`) and show the tree as a **preview of what they can attach** — labeled exactly that way.
+- Attach the datasets (tables) they want analyzed via `call POST /v1/connections/data/<ID>/datasets` (run `describe attach_data_connection_datasets` first for the body), or hand off to the workspace → **Connections** page if the user prefers.
 - Resume on "done": re-run `preflight`; `datasets_total > 0` clears the gate.
 
 **Both gates pass** → update the visual with the **source map** panel: connected systems (one-line summaries from connections, including dataset counts), tables/views/projects counts, notable table names — all mirrored from preflight output verbatim.
@@ -78,7 +78,7 @@ Update the visual: numbered report-idea cards (title + one-line what-you'll-lear
 | Action | In-flow via API? |
 |---|---|
 | Create + test a data connection | ✅ (`connect` skill) |
-| Attach a connection's source tables as datasets | ❌ webapp-only — and `/v1/table-imports` is CSV/file upload, NOT connection attachment; never use it for this |
+| Attach a connection's source tables as datasets | ✅ (`POST /v1/connections/data/{id}/datasets`; `describe` first). `/v1/table-imports` is a separate CSV/file-upload path, NOT connection attachment |
 | Attach tables to a project catalog | ✅ (`catalog-entries`) |
 | Generate / validate / export reports | ✅ |
 | Schedule recurring runs | ✅ (`schedule` skill) |

@@ -1492,7 +1492,7 @@ def _extract_items(payload: Any) -> list[Any]:
     if isinstance(payload, list):
         return payload
     if isinstance(payload, dict):
-        for key in ("entries", "items", "projects", "tables", "views", "connections", "connectors", "data", "results"):
+        for key in ("entries", "items", "projects", "tables", "views", "connections", "connectors", "datasets", "data", "results"):
             value = payload.get(key)
             if isinstance(value, list):
                 return value
@@ -1535,8 +1535,9 @@ def command_preflight(_: argparse.Namespace) -> None:
     def describe(item: Any) -> str:
         # Connections carry infra config (hosts, users, secret ref names) that must
         # not be passed through wholesale; reduce every item to a one-line summary.
-        if isinstance(item, dict) and "connectorType" in item:
-            parts = [str(item.get("connectorType"))]
+        conn_type = item.get("type") or item.get("connectorType") if isinstance(item, dict) else None
+        if conn_type:
+            parts = [str(conn_type)]
             if item.get("status"):
                 parts.append(str(item["status"]))
             if isinstance(item.get("datasetCount"), int):
@@ -1556,25 +1557,48 @@ def command_preflight(_: argparse.Namespace) -> None:
                 "total": _payload_total(payload, items),
                 "names": [describe(item) for item in items[:limit_names]],
             }
-            if name == "connections":
-                # Attached datasets are the analyzable unit; a connection with
-                # zero datasets exposes nothing to Addison or queries.
-                result["sections"][name]["datasets_total"] = sum(
-                    item.get("datasetCount", 0)
-                    for item in items
-                    if isinstance(item, dict) and isinstance(item.get("datasetCount"), int)
-                )
         elif name in ("identity", "org"):
             result["sections"][name] = payload
         else:
             result["sections"][name] = {"total": _payload_total(payload, items), "names": []}
+
+    def connections_section() -> None:
+        # Data connections live under /v1/connections/data. Attached datasets are the
+        # analyzable unit, so count them via each connection's datasets sub-resource
+        # (the list payload does not carry a reliable inline count).
+        try:
+            payload = request_json("GET", "/v1/connections/data", headers=headers)
+        except SystemExit as exc:
+            result["errors"]["connections"] = str(exc)
+            return
+        conns = _extract_items(payload)
+        datasets_total = 0
+        for conn in conns:
+            if not isinstance(conn, dict):
+                continue
+            count = conn.get("datasetCount")
+            if not isinstance(count, int):
+                cid = conn.get("id") or conn.get("connectionId")
+                count = 0
+                if cid:
+                    try:
+                        ds = request_json("GET", f"/v1/connections/data/{cid}/datasets", headers=headers)
+                        count = len(_extract_items(ds))
+                    except SystemExit:
+                        count = 0
+            datasets_total += count
+        result["sections"]["connections"] = {
+            "total": _payload_total(payload, conns),
+            "names": [describe(item) for item in conns[:15]],
+            "datasets_total": datasets_total,
+        }
 
     section("identity", "GET", "/v1/me")
     section("org", "GET", "/v1/tenant/org")
     section("projects", "GET", "/v1/projects")
     section("tables", "GET", "/v1/tables")
     section("views", "GET", "/v1/views")
-    section("connections", "GET", "/v1/connections")
+    connections_section()
     print(json_dumps(result))
 
 
