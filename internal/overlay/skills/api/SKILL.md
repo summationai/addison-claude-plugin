@@ -87,7 +87,7 @@ Auth precedence in the helper is:
 2. `SUM_API_ACCESS_TOKEN`
 3. M2M via `SUM_API_CLIENT_ID` and `SUM_API_CLIENT_SECRET`
 
-For interactive user login, use the sibling `signin` skill. It owns the device-login flow, what to show the user, polling behavior, and logout guidance.
+For interactive user login, use the sibling `signin` skill. It owns the device-login flow, what to show the user, polling behavior, and sign-out guidance.
 
 If device login is unavailable and the user already has machine credentials, fall back to M2M configuration.
 
