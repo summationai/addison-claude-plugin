@@ -25,9 +25,9 @@ Then `/addison:signin` — one browser sign-in connects both the API credential 
 |---|---|---|
 | `start` | `/addison:start` | **guided onboarding**: visual stepper → connect → source map → meet Addison → suggested reports → run one on confirm |
 | `api` | model-invoked | OpenAPI-discovery workflow + `scripts/sum_api.py` helper (canonical; sibling skills reference it); first-run source map |
-| `login` | `/addison:signin` | conversational credential setup → `~/.summation/summation-config` (0600) |
-| `logout` | `/addison:signout` | remove the stored device-login credential from the active or selected profile |
-| `doctor` | `/addison:diagnose` | connectivity/auth diagnosis + `preflight` environment summary |
+| `signin` | `/addison:signin` | conversational credential setup → `~/.summation/summation-config` (0600) |
+| `signout` | `/addison:signout` | remove the stored device-login credential from the active or selected profile |
+| `diagnose` | `/addison:diagnose` | connectivity/auth diagnosis + `preflight` environment summary |
 | `report` | `/addison:report` | generate a report from a question → export markdown/PDF/DOCX |
 | `validate` | `/addison:validate` | run report verification; verdict panel before anything ships externally |
 | `query` | `/addison:query` | bounded read-only SQL → rendered table, SQL shown for spot-checking |
