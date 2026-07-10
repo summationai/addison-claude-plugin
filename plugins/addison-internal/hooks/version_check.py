@@ -57,6 +57,15 @@ def main() -> None:
     except Exception:
         pass
 
+    # Record the check now (best-effort), before any network I/O, so the once-per-day
+    # throttle holds even when offline — a failed fetch must not retry (and re-incur the
+    # 2s timeout) on every SessionStart.
+    try:
+        stamp.parent.mkdir(parents=True, exist_ok=True)
+        stamp.write_text(today, encoding="utf-8")
+    except Exception:
+        pass
+
     url = os.environ.get("ADDISON_VERSION_CHECK_URL") or f"{REPO_RAW}/{market_file}"
     try:
         with urllib.request.urlopen(url, timeout=2, context=ssl.create_default_context()) as resp:
@@ -67,12 +76,6 @@ def main() -> None:
     latest = next((p.get("version") for p in market.get("plugins", []) if p.get("name") == name), None)
     if not latest:
         emit()
-
-    try:  # record the check so we don't re-hit the network today (best-effort)
-        stamp.parent.mkdir(parents=True, exist_ok=True)
-        stamp.write_text(today, encoding="utf-8")
-    except Exception:
-        pass
 
     if version_tuple(latest) > version_tuple(current):
         emit(
