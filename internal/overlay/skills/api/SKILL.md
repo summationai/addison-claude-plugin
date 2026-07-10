@@ -87,7 +87,7 @@ Auth precedence in the helper is:
 2. `SUM_API_ACCESS_TOKEN`
 3. M2M via `SUM_API_CLIENT_ID` and `SUM_API_CLIENT_SECRET`
 
-For interactive user login, use the sibling `login` skill. It owns the device-login flow, what to show the user, polling behavior, and logout guidance.
+For interactive user login, use the sibling `signin` skill. It owns the device-login flow, what to show the user, polling behavior, and logout guidance.
 
 If device login is unavailable and the user already has machine credentials, fall back to M2M configuration.
 
@@ -149,7 +149,7 @@ Read `references/openapi.md` when route selection, pagination, streaming, idempo
 
 ## Safety Rules
 
-- When serving a guided end-user flow (the `start`/`connect`/`login` skills), perform API discovery **silently**: never surface endpoint paths, operation ids, or schema inspection in the conversation — narrate outcomes only. `request_id` on failure is the one exception.
+- When serving a guided end-user flow (the `start`/`connect`/`signin` skills), perform API discovery **silently**: never surface endpoint paths, operation ids, or schema inspection in the conversation — narrate outcomes only. `request_id` on failure is the one exception.
 - Treat destructive operations as confirmation-gated unless the user explicitly asked for the exact deletion.
 - Outward-facing actions are confirmation-gated too: anything that emails, publishes, or sends (e.g. creating or immediately running a schedule with `email_recipients`) requires reading the recipient list and cadence (with timezone) back verbatim and getting an explicit yes first. Never add recipients the user didn't name.
 - Prefer list and show operations before mutations.

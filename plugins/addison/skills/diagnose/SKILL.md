@@ -1,5 +1,5 @@
 ---
-name: doctor
+name: diagnose
 description: Diagnose Summation (sum-api) connectivity and auth. Use when Summation calls fail, credentials seem stale, or the user asks whether Summation is set up correctly.
 ---
 
@@ -9,10 +9,11 @@ Run the bundled diagnostic from the sibling `api` skill (resolve relative to thi
 
 ```bash
 python3 ../api/scripts/sum_api.py doctor
-python3 ../api/scripts/sum_api.py profiles
 ```
 
-`doctor` reports: base URL, active profile, config file path and mode, OpenAPI reachability (title/version/path count), and whether M2M credentials or an access token are present.
+`doctor` reports: base URL (always production in this build), config file path and mode, OpenAPI reachability (title/version/path count), and whether a credential is present.
+
+If the user reports Summation MCP tools failing with auth errors while `doctor` passes: the MCP registration carries its own bearer header — re-run `/addison:signin` (steps 1-4) to mint a fresh credential and re-register the server via `mcp-connect`.
 
 For the full **preflight** (authenticated environment summary — identity, org, projects, tables, views, connections, all counted and named):
 
@@ -30,8 +31,8 @@ python3 ../api/scripts/sum_api.py audit --tail 20
 
 ## Interpreting results
 
-- OpenAPI unreachable → network/base URL problem, not auth. Check the base URL against the active profile.
-- `has_m2m_credentials: false` → no config found; hand off to the `login` skill.
-- 401 on the list call → credentials invalid or expired; re-run `login`.
-- 403 → scope problem; report the `request_id` and the scopes on the profile.
+- OpenAPI unreachable → network problem, not auth (the base URL is pinned to production).
+- No credential found → hand off to the `signin` skill.
+- 401 on the list call → credential invalid or expired; re-run `login`.
+- 403 → scope problem; report the `request_id` and the granted scopes.
 - Always include `request_id` from any failing response — it joins client failures to server-side traces.

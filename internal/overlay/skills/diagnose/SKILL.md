@@ -1,5 +1,5 @@
 ---
-name: doctor
+name: diagnose
 description: Diagnose Summation (sum-api) connectivity and auth. Use when Summation calls fail, credentials seem stale, or the user asks whether Summation is set up correctly.
 ---
 
@@ -31,7 +31,7 @@ python3 ../api/scripts/sum_api.py audit --tail 20
 ## Interpreting results
 
 - OpenAPI unreachable → network/base URL problem, not auth. Check the base URL against the active profile.
-- `has_m2m_credentials: false` → no config found; hand off to the `login` skill.
+- `has_m2m_credentials: false` → no config found; hand off to the `signin` skill.
 - 401 on the list call → credentials invalid or expired; re-run `login`.
 - 403 → scope problem; report the `request_id` and the scopes on the profile.
 - Always include `request_id` from any failing response — it joins client failures to server-side traces.

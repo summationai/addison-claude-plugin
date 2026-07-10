@@ -1,5 +1,5 @@
 ---
-name: login
+name: signin
 description: Authenticate with Summation (sum-api). Use when the user needs to set up, fix, or switch Summation credentials or profiles, or when any Summation call fails with 401/403 and no valid config exists.
 ---
 
@@ -53,8 +53,8 @@ python3 ../api/scripts/sum_api.py login-poll \
 
    Treat `login-poll` as the terminal step in the flow. It should normally return one of these outcomes:
    - `{"status":"approved", ...}`: approval succeeded. The helper already stored `SUM_API_DEVICE_LOGIN_CREDENTIAL` locally in `~/.summation/summation-config-internal` (file mode `0600`). Continue to verification.
-   - `{"status":"denied"}`: the user rejected the request in the browser. No credential was stored. Offer to start over with a fresh `login` flow.
-   - `{"status":"expired"}`: the approval link expired. No credential was stored. Offer to start over with a fresh `login` flow.
+   - `{"status":"denied"}`: the user rejected the request in the browser. No credential was stored. Offer to start over with a fresh `signin` flow.
+   - `{"status":"expired"}`: the approval link expired. No credential was stored. Offer to start over with a fresh `signin` flow.
 
    `pending` is not a normal terminal outcome for the agent to present. The helper keeps polling internally until it reaches `approved`, `denied`, or `expired`.
 
@@ -90,7 +90,7 @@ If the user has no `client_id`/`client_secret` and specifically needs M2M creden
 > Subject: Summation API credentials for Claude
 > Hi — I'm connecting Claude to Summation and need machine credentials: the API **base URL** for our tenant, a **client_id** and **client_secret** with scopes `agent:read agent:write`. Please share them securely (not over chat/email plaintext).
 
-Tell them to come back with `/addison:login` once they have the three values — and that the values are stored locally with file mode 0600, never in this conversation's history beyond their one paste.
+Tell them to come back with `/addison:signin` once they have the three values — and that the values are stored locally with file mode 0600, never in this conversation's history beyond their one paste.
 
 ## Rules
 

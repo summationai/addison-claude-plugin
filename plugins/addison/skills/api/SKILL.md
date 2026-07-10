@@ -83,7 +83,7 @@ python3 $SKILL/scripts/sum_api.py call --stream \
 
 Device login only. The stored credential (`SUM_API_DEVICE_LOGIN_CREDENTIAL` in `~/.summation/summation-config`, file mode `0600`) authenticates every call; `SUM_API_ACCESS_TOKEN` is honored if present. There is no M2M path in this build.
 
-For interactive user login, use the sibling `login` skill. It owns the device-login flow, what to show the user, polling behavior, MCP registration, and logout guidance. If no credential is stored, the helper exits with "Not signed in to Summation. Run /addison:login to connect." — do that, don't improvise auth.
+For interactive user login, use the sibling `signin` skill. It owns the device-login flow, what to show the user, polling behavior, MCP registration, and logout guidance. If no credential is stored, the helper exits with "Not signed in to Summation. Run /addison:signin to connect." — do that, don't improvise auth.
 
 Never write credentials into committed skill source, generated examples, commits, logs, or PR descriptions.
 
@@ -107,7 +107,7 @@ Read `references/openapi.md` when route selection, pagination, streaming, idempo
 
 ## Safety Rules
 
-- When serving a guided end-user flow (the `start`/`connect`/`login` skills), perform API discovery **silently**: never surface endpoint paths, operation ids, or schema inspection in the conversation — narrate outcomes only. `request_id` on failure is the one exception.
+- When serving a guided end-user flow (the `start`/`connect`/`signin` skills), perform API discovery **silently**: never surface endpoint paths, operation ids, or schema inspection in the conversation — narrate outcomes only. `request_id` on failure is the one exception.
 - Treat destructive operations as confirmation-gated unless the user explicitly asked for the exact deletion.
 - Outward-facing actions are confirmation-gated too: anything that emails, publishes, or sends (e.g. creating or immediately running a schedule with `email_recipients`) requires reading the recipient list and cadence (with timezone) back verbatim and getting an explicit yes first. Never add recipients the user didn't name.
 - Prefer list and show operations before mutations.
@@ -119,13 +119,13 @@ Read `references/openapi.md` when route selection, pagination, streaming, idempo
 
 ## MCP Relationship — MCP-first
 
-The hosted Summation MCP server (`summation`, `https://mcp.summation.com/mcp`) exposes 41 curated, non-destructive tools over the same public API: multi-turn analyst (`ask_analyst` → `reply_to_analyst` with context), identity/project bootstrap (`whoami`, `get_default_project`, `create_project`), source discovery (connections/datasets), tables/views/query with previews and lineage, files (upload/download/import), reports, playbooks, and schedules. `/addison:login` registers it via `mcp-connect`.
+The hosted Summation MCP server (`summation`, `https://mcp.summation.com/mcp`) exposes 41 curated, non-destructive tools over the same public API: multi-turn analyst (`ask_analyst` → `reply_to_analyst` with context), identity/project bootstrap (`whoami`, `get_default_project`, `create_project`), source discovery (connections/datasets), tables/views/query with previews and lineage, files (upload/download/import), reports, playbooks, and schedules. `/addison:signin` registers it via `mcp-connect`.
 
 **When the `summation` MCP server is connected, prefer its tools over this script for all data operations.** Fall back to the script when the server is not connected; auth plumbing always goes through the script.
 
 Client-side behaviors when calling the MCP tools:
 
 - **Long tools return one buffered result, not a stream.** `ask_analyst`, `start_report`, `validate_report`, and `import_file_to_table` complete in ~15-60s and arrive as a single result. Tell the user Addison is working; do not treat silence as failure before ~120s.
-- **Auth errors mean a revoked/expired bearer**: re-run `/addison:login` (it mints a fresh credential and re-registers the server).
+- **Auth errors mean a revoked/expired bearer**: re-run `/addison:signin` (it mints a fresh credential and re-registers the server).
 - **Known API bug**: `get_view`/`preview_view_data` can 404 on ids returned by `search_views` (list/show split; fix tracked upstream). Fall back to the tables path or note the limitation.
 - `create_schedule` sends email — confirm recipients and cadence verbatim with the user first, same as the REST rule above.

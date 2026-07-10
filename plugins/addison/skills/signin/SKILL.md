@@ -1,5 +1,5 @@
 ---
-name: login
+name: signin
 description: Sign in to Summation. Use when the user needs to connect Addison, fix credentials, or when any Summation call fails with 401/403 and no valid config exists.
 ---
 

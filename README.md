@@ -11,7 +11,7 @@ Plugin marketplace for Summation. One plugin, `addison`, brings Addison to Claud
 /plugin install addison@summation
 ```
 
-Then `/addison:login` — one browser sign-in connects both the API credential and the Summation MCP server. (Once browser-based OAuth ships server-side, this becomes `/mcp` → sign in.)
+Then `/addison:signin` — one browser sign-in connects both the API credential and the Summation MCP server. (Once browser-based OAuth ships server-side, this becomes `/mcp` → sign in.)
 
 **claude.ai / Claude Desktop (org admins):** Admin console → Plugins → Add plugins → *Sync from GitHub* (this repo) or *Upload a file* (`dist/addison-plugin.zip`). Members then install from the org library.
 
@@ -25,9 +25,9 @@ Then `/addison:login` — one browser sign-in connects both the API credential a
 |---|---|---|
 | `start` | `/addison:start` | **guided onboarding**: visual stepper → connect → source map → meet Addison → suggested reports → run one on confirm |
 | `api` | model-invoked | OpenAPI-discovery workflow + `scripts/sum_api.py` helper (canonical; sibling skills reference it); first-run source map |
-| `login` | `/addison:login` | conversational credential setup → `~/.summation/summation-config` (0600) |
-| `logout` | `/addison:logout` | remove the stored device-login credential from the active or selected profile |
-| `doctor` | `/addison:doctor` | connectivity/auth diagnosis + `preflight` environment summary |
+| `login` | `/addison:signin` | conversational credential setup → `~/.summation/summation-config` (0600) |
+| `logout` | `/addison:signout` | remove the stored device-login credential from the active or selected profile |
+| `doctor` | `/addison:diagnose` | connectivity/auth diagnosis + `preflight` environment summary |
 | `report` | `/addison:report` | generate a report from a question → export markdown/PDF/DOCX |
 | `validate` | `/addison:validate` | run report verification; verdict panel before anything ships externally |
 | `query` | `/addison:query` | bounded read-only SQL → rendered table, SQL shown for spot-checking |

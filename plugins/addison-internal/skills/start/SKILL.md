@@ -7,7 +7,7 @@ description: Summation onboarding wizard — guided first-run setup with a visua
 
 Walk a brand-new user from zero to their first report, with a visual that tracks progress. Helper: `../api/scripts/sum_api.py`.
 
-**MCP-first**: once step 1 completes, the `summation` MCP server is registered (the `login` flow runs `mcp-connect`). From step 2 on, prefer the MCP tools when connected — `whoami`/project tools for bootstrap, source-discovery tools for the data map, and `ask_analyst` for step 3 (buffered result, ~15-60s: keep the visual updated so the wait feels intentional).
+**MCP-first**: once step 1 completes, the `summation` MCP server is registered (the `signin` flow runs `mcp-connect`). From step 2 on, prefer the MCP tools when connected — `whoami`/project tools for bootstrap, source-discovery tools for the data map, and `ask_analyst` for step 3 (buffered result, ~15-60s: keep the visual updated so the wait feels intentional).
 
 ## The four steps
 
@@ -23,8 +23,8 @@ Walk a brand-new user from zero to their first report, with a visual that tracks
 
 Run `doctor`. Three cases:
 - Credentials present and working → mark done, show tenant + scopes. If the MCP server isn't registered yet, run `mcp-connect` now.
-- No config → run the sibling `login` flow conversationally (never echo the secret; it stores to `~/.summation/summation-config`, 0600). The flow ends by registering the Summation MCP server.
-- Config present but failing → diagnose per the `doctor` skill, fix or re-login.
+- No config → run the sibling `signin` flow conversationally (never echo the secret; it stores to `~/.summation/summation-config`, 0600). The flow ends by registering the Summation MCP server.
+- Config present but failing → diagnose per the `diagnose` skill, fix or re-login.
 
 ### Step 2 — Discover (GATE: connections AND attached datasets required)
 
