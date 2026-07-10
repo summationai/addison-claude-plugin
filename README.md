@@ -1,6 +1,6 @@
-# Addison — Summation's AI analyst in Claude Code and Codex
+# Addison — Summation's AI analyst in Claude Code
 
-Plugin marketplace for Summation. One plugin, `addison`, brings Addison to Claude and Codex surfaces: data questions over the hosted Summation MCP server (41 curated tools), report generation and export (PDF/DOCX/Markdown), catalog discovery, bounded SQL.
+Plugin marketplace for Summation. One plugin, `addison`, brings Addison to Claude Code and Claude Desktop: data questions over the hosted Summation MCP server, report generation and export (PDF/DOCX/Markdown), catalog discovery, bounded SQL.
 
 ## Install
 
@@ -17,15 +17,7 @@ Then `/addison:login` — one browser sign-in connects both the API credential a
 
 > Desktop note: skill scripts run in the code-execution sandbox. The org's code-execution network egress must allow the sum-api host(s) (Capabilities → Code execution), and credentials must be reachable from the sandbox — see the dogfood matrix in the rollout doc.
 
-**Codex:** the generated Codex bundle lives at `plugins/codex` and is listed from `.agents/plugins/marketplace.json`.
-
-```
-./build-codex.sh
-codex plugin marketplace add .
-codex plugin add addison@summation
-```
-
-Then start a new Codex thread and use `$addison-login`. One browser sign-in stores the API credential and registers the Summation MCP server in `~/.codex/config.toml`.
+> Codex support is deferred — it will be rebuilt cleanly in a future release.
 
 ## Contents
 
@@ -65,7 +57,7 @@ user approval before publishing anywhere.
 
 ## Editions
 
-`plugins/addison` (external, source of truth) ships to the public marketplace: production-pinned, device-login only, host-pinned HTTPS requests. `plugins/addison-internal` is **generated** by `./build-editions.sh` — same skills with `EDITION="internal"` baked into the helper (any environment, M2M, profiles) plus the overlays in `internal/overlay/`. `plugins/codex` is **generated** by `./build-codex.sh` from the external plugin plus Codex manifest and login/logout overlays. Never edit generated plugin directories directly.
+`plugins/addison` (external, source of truth) ships to the public marketplace: production-pinned, device-login only, host-pinned HTTPS requests. `plugins/addison-internal` is **generated** by `./build-editions.sh` — same skills with `EDITION="internal"` baked into the helper (any environment, M2M, profiles) plus the overlays in `internal/overlay/`. Never edit generated plugin directories directly.
 
 The edition is a build-time constant, not an env var, so the external artifact contains no unlock path.
 
@@ -75,10 +67,9 @@ The edition is a build-time constant, not an env var, so the external artifact c
 claude --plugin-dir ./plugins/addison        # load external for one session
 claude plugin validate ./plugins/addison     # validate manifest
 ./build-editions.sh                          # regenerate plugins/addison-internal
-./build-codex.sh                             # regenerate plugins/codex and Codex marketplace
 ./build-zip.sh                               # rebuild dist/addison-plugin.zip for org upload
 ```
 
 ## Release
 
-Bump `version` in `plugins/addison/.claude-plugin/plugin.json` AND `.claude-plugin/marketplace.json` (users only receive updates on version bumps), then run `./build-editions.sh` and `./build-codex.sh`. Update `marketplace.internal.json` to match.
+Bump `version` in `plugins/addison/.claude-plugin/plugin.json` AND `.claude-plugin/marketplace.json` (users only receive updates on version bumps), then run `./build-editions.sh`. Update `marketplace.internal.json` to match.
