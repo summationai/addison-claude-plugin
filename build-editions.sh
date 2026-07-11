@@ -20,8 +20,9 @@ fi
 rm -rf "$DST"
 cp -R "$SRC" "$DST"
 
-# 2. bake edition (fail hard if the anchor ever drifts)
-sed -i '' 's/^EDITION = "external"$/EDITION = "internal"/' "$DST/skills/api/scripts/sum_api.py"
+# 2. bake edition (fail hard if the anchor ever drifts). perl -i is portable across
+# macOS (BSD) and the Linux CI runner (GNU); `sed -i ''` is not.
+perl -i -pe 's/^EDITION = "external"$/EDITION = "internal"/' "$DST/skills/api/scripts/sum_api.py"
 grep -q '^EDITION = "internal"$' "$DST/skills/api/scripts/sum_api.py" || {
   echo "edition bake failed: EDITION anchor not found in sum_api.py" >&2
   exit 1
@@ -32,7 +33,7 @@ cp -R internal/overlay/skills/. "$DST/skills/"
 
 # 4. namespace slash-commands
 grep -rl "/addison:" "$DST" --include="*.md" --include="*.html" | while read -r f; do
-  sed -i '' 's|/addison:|/addison-internal:|g' "$f"
+  perl -i -pe 's|/addison:|/addison-internal:|g' "$f"
 done
 
 # 5. internal manifest, version synced from external
