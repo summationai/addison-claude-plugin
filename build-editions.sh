@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Assemble plugins/addison-internal from the external source of truth (plugins/addison):
+# Assemble plugins/addison-claude-internal from the external source of truth (plugins/addison-claude):
 #   1. copy the external plugin
 #   2. bake EDITION="internal" into sum_api.py (build-time constant — no runtime unlock)
 #   3. apply internal skill overlays from internal/overlay/
 #   4. namespace slash-commands (/addison: -> /addison-internal:)
 #   5. write the internal plugin.json (version synced from external)
-# plugins/addison-internal is GENERATED — never edit it directly.
+# plugins/addison-claude-internal is GENERATED — never edit it directly.
 set -euo pipefail
 cd "$(dirname "$0")"
 
-SRC=plugins/addison
-DST=plugins/addison-internal
+SRC=plugins/addison-claude
+DST=plugins/addison-claude-internal
 
 if find "$SRC" -name ".summation-config*" | grep -q .; then
   echo "refusing to build: credential file inside $SRC" >&2
@@ -20,8 +20,9 @@ fi
 rm -rf "$DST"
 cp -R "$SRC" "$DST"
 
-# 2. bake edition (fail hard if the anchor ever drifts)
-sed -i '' 's/^EDITION = "external"$/EDITION = "internal"/' "$DST/skills/api/scripts/sum_api.py"
+# 2. bake edition (fail hard if the anchor ever drifts). perl -i is portable across
+# macOS (BSD) and the Linux CI runner (GNU); `sed -i ''` is not.
+perl -i -pe 's/^EDITION = "external"$/EDITION = "internal"/' "$DST/skills/api/scripts/sum_api.py"
 grep -q '^EDITION = "internal"$' "$DST/skills/api/scripts/sum_api.py" || {
   echo "edition bake failed: EDITION anchor not found in sum_api.py" >&2
   exit 1
@@ -32,7 +33,7 @@ cp -R internal/overlay/skills/. "$DST/skills/"
 
 # 4. namespace slash-commands
 grep -rl "/addison:" "$DST" --include="*.md" --include="*.html" | while read -r f; do
-  sed -i '' 's|/addison:|/addison-internal:|g' "$f"
+  perl -i -pe 's|/addison:|/addison-internal:|g' "$f"
 done
 
 # 5. internal manifest, version synced from external

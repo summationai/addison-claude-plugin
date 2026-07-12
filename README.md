@@ -1,6 +1,6 @@
-# Addison — Summation's AI analyst in Claude Code
+# Addison — Summation's AI analyst in Claude Code and Codex
 
-Plugin marketplace for Summation. One plugin, `addison`, brings Addison to Claude Code and Claude Desktop: data questions over the hosted Summation MCP server, report generation and export (PDF/DOCX/Markdown), catalog discovery, bounded SQL.
+Plugin marketplace for Summation. One plugin, `addison`, brings Addison to Claude Code, Claude Desktop, and OpenAI Codex: data questions over the hosted Summation MCP server, report generation and export (PDF/DOCX/Markdown), catalog discovery, bounded SQL.
 
 ## Install
 
@@ -23,7 +23,14 @@ Members then install from the org library.
 
 > Desktop note: skill scripts run in the code-execution sandbox. The org's code-execution network egress must allow the sum-api host(s) (Capabilities → Code execution), and credentials must be reachable from the sandbox — see the dogfood matrix in the rollout doc.
 
-> Codex support is deferred — it will be rebuilt cleanly in a future release.
+**Codex:**
+
+```
+codex plugin marketplace add summationai/addison-plugin
+codex plugin install addison
+```
+
+Then `$addison-signin` — the same browser sign-in, and it registers the Summation MCP server in `~/.codex/config.toml`. Skills are invoked with `$addison-…` mentions.
 
 ## Contents
 
@@ -63,23 +70,27 @@ user approval before publishing anywhere.
 
 ## Editions
 
-`plugins/addison` (external, source of truth) ships to the public marketplace: production-pinned, device-login only, host-pinned HTTPS requests. `plugins/addison-internal` is **generated** by `./build-editions.sh` — same skills with `EDITION="internal"` baked into the helper (any environment, M2M, profiles) plus the overlays in `internal/overlay/`. Never edit generated plugin directories directly.
+`plugins/addison-claude` (external, source of truth) ships to the public marketplace: production-pinned, device-login only, host-pinned HTTPS requests. Two editions are **generated** from it — never edit them directly:
 
-The edition is a build-time constant, not an env var, so the external artifact contains no unlock path.
+- `plugins/addison-claude-internal` — `./build-editions.sh` bakes `EDITION="internal"` (any environment, M2M, profiles) plus the overlays in `internal/overlay/`.
+- `plugins/addison-codex` — `./build-codex.sh` rewrites `/addison:` → `$addison-`, swaps in a `signin`/`signout` overlay that registers the MCP server in `~/.codex/config.toml` (`mcp-connect --client codex`), and writes `.codex-plugin/plugin.json` + `.agents/plugins/marketplace.json`.
+
+The `Check generated editions` CI regenerates both and **fails the build if they drift from source** — so there is exactly one place to edit (`plugins/addison-claude`), and the generated dirs can never fall out of sync. The edition is a build-time constant, not an env var, so the external artifact contains no unlock path.
 
 ## Dev loop
 
 ```bash
-claude --plugin-dir ./plugins/addison        # load external for one session
-claude plugin validate ./plugins/addison     # validate manifest
-./build-editions.sh                          # regenerate plugins/addison-internal
+claude --plugin-dir ./plugins/addison-claude        # load external for one session
+claude plugin validate ./plugins/addison-claude     # validate manifest
+./build-editions.sh                          # regenerate plugins/addison-claude-internal
+./build-codex.sh                             # regenerate plugins/addison-codex + Codex marketplace
 ./build-zip.sh                               # rebuild dist/addison-plugin.zip for org upload
 ```
 
 ## Release
 
-1. Bump `version` in `plugins/addison/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and `.claude-plugin/marketplace.internal.json` (marketplace users only receive updates on a version bump).
-2. Run `./build-editions.sh` to regenerate `plugins/addison-internal`, and commit. Merge to `main`.
+1. Bump `version` in `plugins/addison-claude/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and `.claude-plugin/marketplace.internal.json` (marketplace users only receive updates on a version bump).
+2. Run `./build-editions.sh` and `./build-codex.sh` to regenerate the internal and Codex editions, and commit (the drift-guard CI enforces this). Merge to `main`.
 3. Tag the release and push the tag:
    ```bash
    git tag v0.8.2 && git push origin v0.8.2
